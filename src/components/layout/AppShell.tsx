@@ -3,16 +3,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users,
-  MapPin,
-  BookOpen,
-  Building2,
-  FileText,
   Home,
-  MessageSquare,
-  History,
   User,
-  BarChart3,
-  ClipboardList,
   LogOut,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -22,30 +14,16 @@ import { cn } from '../../utils/cn.ts';
 
 const studentNav = [
   { to: '/student', label: 'Home', icon: Home },
-  { to: '/student/feedback', label: 'Feedback', icon: MessageSquare },
-  { to: '/student/history', label: 'History', icon: History },
-  { to: '/student/profile', label: 'Profile', icon: User },
 ];
 
-const facultyNav = [
-  { to: '/faculty/sessions', label: 'Create Session', icon: ClipboardList },
-  { to: '/faculty/live', label: 'Live Session', icon: Users },
-  { to: '/faculty/analytics', label: 'Attendance', icon: BarChart3 },
-  { to: '/faculty/feedback', label: 'Feedback', icon: MessageSquare },
-];
 
 const adminNav = [
   { to: '/admin', label: 'Overview', icon: LayoutDashboard },
   { to: '/admin/users', label: 'Users', icon: Users },
-  { to: '/admin/departments', label: 'Departments', icon: Building2 },
-  { to: '/admin/courses', label: 'Courses', icon: BookOpen },
-  { to: '/admin/classrooms', label: 'Classrooms', icon: MapPin },
-  { to: '/admin/reports', label: 'Reports', icon: FileText },
 ];
 
 function getNav(role: UserRole) {
   if (role === 'student') return studentNav;
-  if (role === 'faculty') return facultyNav;
   return adminNav;
 }
 

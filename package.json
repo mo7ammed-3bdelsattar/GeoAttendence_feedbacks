@@ -24,6 +24,7 @@
     "react-leaflet": "^4.2.1",
     "react-router-dom": "^7.6.1",
     "recharts": "^2.15.0",
+    "tailwind": "^4.0.0",
     "zustand": "^5.0.2"
   },
   "devDependencies": {
