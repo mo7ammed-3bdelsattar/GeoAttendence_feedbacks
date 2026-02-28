@@ -1,39 +1,34 @@
+import axios, { type AxiosInstance } from 'axios';
 import { 
   signInWithEmailAndPassword, 
   signOut, 
   sendPasswordResetEmail
 } from 'firebase/auth';
-import { 
-  collection, 
-  getDocs, 
-  doc, 
-  setDoc, 
-  getDoc,
-  updateDoc,
-  deleteDoc,
-  query,
-  where
-} from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
+import { auth as clientAuth } from '../config/firebase';
 import type { User, UserRole } from '../types/index.ts';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
+const api: AxiosInstance = axios.create({
+  baseURL: API_BASE_URL,
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
 
 export const authApi = {
   async login(email: string, password: string, role: UserRole): Promise<User> {
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    // 1. Initial login on client via Firebase Auth
+    const userCredential = await signInWithEmailAndPassword(clientAuth, email, password);
     const firebaseUser = userCredential.user;
+    
+    // 2. Get ID Token
+    const idToken = await firebaseUser.getIdToken();
 
-    // Fetch user role from Firestore
-    const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-    if (!userDoc.exists()) {
-      throw new Error('User profile not found in database');
-    }
-
-    const userData = userDoc.data() as User;
-    if (userData.role !== role) {
-      throw new Error(`Unauthorized: You are not registered as a ${role}`);
-    }
+    // 3. Verify on Express backend & fetch profile
+    const response = await api.post('/auth/login', { idToken, role });
+    const userData = response.data;
 
     return {
       id: firebaseUser.uid,
@@ -44,62 +39,38 @@ export const authApi = {
   },
 
   async logout(): Promise<void> {
-    await signOut(auth);
+    await signOut(clientAuth);
+    // Optional: Call server side logout if sessions are used
   },
 
   async resetPassword(email: string): Promise<void> {
-    await sendPasswordResetEmail(auth, email);
+    // Reset via client-side for better UX/speed, or call backend
+    await sendPasswordResetEmail(clientAuth, email);
+    await api.post('/auth/reset-password', { email });
   }
 };
 
 export const adminApi = {
   async getUsers(role?: UserRole): Promise<User[]> {
-    const usersCol = collection(db, 'users');
-    let q = query(usersCol);
-    
-    if (role) {
-      q = query(usersCol, where('role', '==', role));
-    }
-    
-    const snapshot = await getDocs(q);
-    return snapshot.docs
-      .map((doc) => {
-        const data = doc.data();
-        if (!data) return null;
-        return {
-          id: doc.id,
-          ...data,
-        } as User;
-      })
-      .filter((u): u is User => u !== null);
+    const response = await api.get('/admin/users', { 
+      params: { role } 
+    });
+    return response.data;
   },
 
   async createUser(payload: Partial<User> & { password?: string }): Promise<User> {
-    // Note: Creating auth users for others from the frontend is restricted in Firebase.
-    // Usually this is done via a backend or Firebase Admin SDK.
-    // For this demonstration, we'll create a Firestore entry.
-    // If the user wants to sign up themselves, they'd use a signup page.
-    
-    const id = payload.id || `u-${Date.now()}`;
-    const newUser: User = {
-      id,
-      name: payload.name ?? '',
-      email: payload.email ?? '',
-      role: payload.role ?? 'student',
-    };
-
-    await setDoc(doc(db, 'users', id), newUser);
-    return newUser;
+    const response = await api.post('/admin/users', payload);
+    return response.data;
   },
 
   async updateUser(id: string, payload: Partial<User>): Promise<User> {
-    const userRef = doc(db, 'users', id);
-    await updateDoc(userRef, payload);
-    const updated = await getDoc(userRef);
-    return { id: updated.id, ...updated.data() } as User;
+    const response = await api.patch(`/admin/users/${id}`, payload);
+    return response.data;
   },
 
   async deleteUser(id: string): Promise<void> {
-    await deleteDoc(doc(db, 'users', id));
+    await api.delete(`/admin/users/${id}`);
   }
 };
+
+export default api;

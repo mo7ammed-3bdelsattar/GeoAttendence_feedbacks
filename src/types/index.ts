@@ -1,8 +1,4 @@
 export * from './auth.ts';
-export * from './session.ts';
-export * from './course.ts';
-export * from './attendance.ts';
-export * from './feedback.ts';
 
 export interface Department {
   id: string;
@@ -17,4 +13,26 @@ export interface Classroom {
   lat: number;
   lng: number;
   geofenceRadiusMeters: number;
+}
+
+export interface Session {
+  id: string;
+  courseId: string;
+  courseName: string;
+  classroomId: string;
+  facultyId: string;
+  startTime: string;
+  endTime: string;
+  topic: string;
+  status: 'active' | 'closed';
+}
+
+export interface Attendance {
+  id: string;
+  sessionId: string;
+  studentId: string;
+  checkInTime: string;
+  status: 'present' | 'absent' | 'late';
+  lat: number;
+  lng: number;
 }

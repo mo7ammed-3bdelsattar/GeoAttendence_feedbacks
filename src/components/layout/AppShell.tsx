@@ -14,6 +14,7 @@ import { cn } from '../../utils/cn.ts';
 
 const studentNav = [
   { to: '/student', label: 'Home', icon: Home },
+  { to: '/student/profile', label: 'Profile', icon: User },
 ];
 
 
