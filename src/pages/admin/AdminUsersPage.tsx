@@ -80,7 +80,6 @@ export function AdminUsersPage() {
   const [page, setPage] = useState(0);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
-  // Modals
   const [addOpen, setAddOpen] = useState(false);
   const [addName, setAddName] = useState('');
   const [addEmail, setAddEmail] = useState('');
@@ -221,8 +220,6 @@ export function AdminUsersPage() {
   return (
     <AppShell title="Users & Permissions">
       <div className="space-y-6">
-        
-        {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
@@ -252,7 +249,6 @@ export function AdminUsersPage() {
           </div>
         </div>
 
-        {/* Filters & Tabs */}
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex gap-2 p-1 bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden overflow-x-auto no-scrollbar max-w-full">
             {[
@@ -295,7 +291,6 @@ export function AdminUsersPage() {
           </div>
         </div>
 
-        {/* Data View */}
         {loading ? (
           <div className="bg-white rounded-3xl border border-gray-100 p-8 shadow-sm">
             <TableSkeleton rows={8} />
@@ -373,7 +368,6 @@ export function AdminUsersPage() {
                 </tbody>
               </table>
             </div>
-            {/* Pagination */}
             <div className="px-6 py-5 bg-gray-50/50 border-t border-gray-100 flex items-center justify-between">
               <p className="text-xs font-medium text-gray-400">
                 Displaying <span className="text-gray-900">{pageData.length}</span> of <span className="text-gray-900">{filtered.length}</span> results
@@ -408,7 +402,6 @@ export function AdminUsersPage() {
             </div>
           </div>
         ) : (
-          /* Grid View */
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
              {pageData.map((user) => {
                 const cfg = ROLE_CONFIG[user.role as UserRole] || ROLE_CONFIG.student;
@@ -435,7 +428,6 @@ export function AdminUsersPage() {
           </div>
         )}
 
-        {/* Global Toolbar */}
         <div className="fixed bottom-8 right-8">
            <button 
              onClick={() => setAddOpen(true)}
@@ -447,10 +439,7 @@ export function AdminUsersPage() {
         </div>
 
       </div>
-
-      {/* ── Modals ─────────────────────────────────────── */}
       
-      {/* Quick Add Modal */}
       <Modal
         isOpen={addOpen}
         onClose={() => setAddOpen(false)}
@@ -475,7 +464,6 @@ export function AdminUsersPage() {
         </div>
       </Modal>
 
-      {/* Edit User Modal */}
       <Modal
         isOpen={!!editUser}
         onClose={() => setEditUser(null)}
@@ -507,7 +495,6 @@ export function AdminUsersPage() {
         </div>
       </Modal>
 
-      {/* Danger Zone: Delete Modal */}
       <Modal
         isOpen={!!deleteUser}
         onClose={() => setDeleteUser(null)}

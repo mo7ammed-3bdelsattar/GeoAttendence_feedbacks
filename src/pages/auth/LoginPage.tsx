@@ -46,15 +46,11 @@ export function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50/50 relative overflow-hidden font-sans">
-      
-      {/* Dynamic Background Elements */}
       <div className="fixed top-0 left-0 w-full h-full -z-10 bg-[radial-gradient(circle_at_top_right,_#1e3a8a0a,_transparent),_radial-gradient(circle_at_bottom_left,_#1e3a8a0a,_transparent)]"></div>
       <div className="absolute top-1/4 -right-20 w-80 h-80 bg-primary/5 rounded-full blur-[100px] animate-pulse"></div>
       <div className="absolute bottom-1/4 -left-20 w-80 h-80 bg-primary/5 rounded-full blur-[100px] animate-pulse delay-700"></div>
 
       <div className="w-full max-w-5xl px-4 flex flex-col lg:flex-row items-center gap-12 lg:gap-24 relative z-10">
-        
-        {/* Visual Brand Side */}
         <div className="hidden lg:flex flex-col flex-1 space-y-10 py-12">
            <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-2xl bg-gray-900 border border-white/10 shadow-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -92,10 +88,8 @@ export function LoginPage() {
            </div>
         </div>
 
-        {/* Auth Interaction Side */}
         <div className="w-full max-w-md">
            <div className="bg-white rounded-[3rem] border border-gray-100 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)] p-10 md:p-14 relative group overflow-hidden">
-              
               <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform duration-700"></div>
 
               <div className="text-center mb-10">

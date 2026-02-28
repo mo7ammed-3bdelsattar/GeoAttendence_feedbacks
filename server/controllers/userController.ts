@@ -28,7 +28,6 @@ export const createUser = async (req: Request, res: Response) => {
     const payload = req.body;
     const { email, password, name, role } = payload;
 
-    // Use admin.auth() to create a real user in Firebase Auth
     const userAuth = await adminAuth.createUser({
       email,
       password,
@@ -69,7 +68,6 @@ export const deleteUser = async (req: Request, res: Response) => {
     const { id } = req.params;
 
     const userId = String(id);
-    // Remove from both Auth and Firestore
     await adminAuth.deleteUser(userId);
     await db.collection('users').doc(userId).delete();
 

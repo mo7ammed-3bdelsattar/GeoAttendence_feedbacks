@@ -67,8 +67,6 @@ export function AdminUserSignupPage() {
   return (
     <AppShell title="System Registration">
       <div className="max-w-4xl mx-auto py-8">
-        
-        {/* Navigation Breadcrumb */}
         <Link
           to="/admin/users"
           className="group inline-flex items-center gap-2 text-sm font-semibold text-gray-400 hover:text-primary mb-8 transition-colors"
@@ -80,8 +78,6 @@ export function AdminUserSignupPage() {
         </Link>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 bg-white rounded-[2.5rem] border border-gray-100 shadow-2xl shadow-gray-200/50 overflow-hidden">
-          
-          {/* Info Side (Desktop Only) */}
           <div className="lg:col-span-2 bg-gray-900 p-10 text-white flex flex-col justify-between relative overflow-hidden">
              <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 rounded-full blur-[100px] -mr-32 -mt-32"></div>
              
@@ -121,7 +117,6 @@ export function AdminUserSignupPage() {
              </div>
           </div>
 
-          {/* Form Side */}
           <div className="lg:col-span-3 p-10 md:p-14">
             <div className="mb-10 text-center lg:text-left">
               <h3 className="text-xl font-bold text-gray-900">Personal Information</h3>

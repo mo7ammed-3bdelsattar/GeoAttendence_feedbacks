@@ -41,7 +41,6 @@ export function AdminOverviewPage() {
   return (
     <AppShell title="Overview Dashboard">
       <div className="space-y-6">
-        {/* Header Stats Chips */}
         <div className="flex flex-wrap items-center gap-3 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm mb-4">
            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all ${dbStatus === 'Live' ? 'bg-emerald-50 text-emerald-700' : dbStatus === 'Config Error' ? 'bg-red-50 text-red-700' : 'bg-gray-50 text-gray-500'}`}>
               <Database className="h-4 w-4" />
@@ -57,7 +56,6 @@ export function AdminOverviewPage() {
            </div>
         </div>
 
-        {/* Real-time stats from database */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
             icon={Users}
@@ -82,7 +80,6 @@ export function AdminOverviewPage() {
           />
         </div>
 
-        {/* Charts & Graphs */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
            <div className="p-6 bg-white rounded-2xl border border-gray-200 shadow-sm">
               <h3 className="text-md font-bold text-gray-800 mb-6 flex items-center gap-2">

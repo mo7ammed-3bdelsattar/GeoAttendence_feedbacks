@@ -19,14 +19,9 @@ const api: AxiosInstance = axios.create({
 
 export const authApi = {
   async login(email: string, password: string, role: UserRole): Promise<User> {
-    // 1. Initial login on client via Firebase Auth
     const userCredential = await signInWithEmailAndPassword(clientAuth, email, password);
     const firebaseUser = userCredential.user;
-    
-    // 2. Get ID Token
     const idToken = await firebaseUser.getIdToken();
-
-    // 3. Verify on Express backend & fetch profile
     const response = await api.post('/auth/login', { idToken, role });
     const userData = response.data;
 
@@ -40,11 +35,9 @@ export const authApi = {
 
   async logout(): Promise<void> {
     await signOut(clientAuth);
-    // Optional: Call server side logout if sessions are used
   },
 
   async resetPassword(email: string): Promise<void> {
-    // Reset via client-side for better UX/speed, or call backend
     await sendPasswordResetEmail(clientAuth, email);
     await api.post('/auth/reset-password', { email });
   }

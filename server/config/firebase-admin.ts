@@ -8,7 +8,6 @@ dotenv.config();
 const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './service-account.json';
 const absolutePath = path.resolve(process.cwd(), serviceAccountPath);
 
-// Support for individual env vars (Option B)
 const inlineConfig = {
   projectId: process.env.FIREBASE_PROJECT_ID,
   clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
@@ -16,19 +15,16 @@ const inlineConfig = {
 };
 
 function getCredential() {
-  // 1. Try file
   if (fs.existsSync(absolutePath)) {
     console.log('[FIREBASE-ADMIN] Using service account file.');
     return admin.credential.cert(absolutePath);
   }
 
-  // 2. Try inline environment variables
   if (inlineConfig.projectId && inlineConfig.clientEmail && inlineConfig.privateKey) {
     console.log('[FIREBASE-ADMIN] Using individual environment variables.');
     return admin.credential.cert(inlineConfig as admin.ServiceAccount);
   }
 
-  // 3. Fallback to default (likely to fail without GOOGLE_APPLICATION_CREDENTIALS)
   console.warn('[FIREBASE-ADMIN] No valid credentials found. Ensure service-account.json exists or check .env variables.');
   return admin.credential.applicationDefault();
 }
