@@ -6,6 +6,7 @@ import {
   Home,
   User,
   LogOut,
+  Building2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../../stores/authStore.ts';
@@ -17,10 +18,10 @@ const studentNav = [
   { to: '/student/profile', label: 'Profile', icon: User },
 ];
 
-
 const adminNav = [
   { to: '/admin', label: 'Overview', icon: LayoutDashboard },
   { to: '/admin/users', label: 'Users', icon: Users },
+  { to: '/admin/departments', label: 'Departments', icon: Building2 },
 ];
 
 function getNav(role: UserRole) {

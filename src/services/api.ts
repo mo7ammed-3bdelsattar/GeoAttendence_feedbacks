@@ -5,7 +5,7 @@ import {
   sendPasswordResetEmail
 } from 'firebase/auth';
 import { auth as clientAuth } from '../config/firebase';
-import type { User, UserRole } from '../types/index.ts';
+import type { User, UserRole, Department } from '../types/index.ts';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -63,6 +63,16 @@ export const adminApi = {
 
   async deleteUser(id: string): Promise<void> {
     await api.delete(`/admin/users/${id}`);
+  },
+
+  async getDepartments(): Promise<Department[]> {
+    const response = await api.get('/admin/departments');
+    return response.data;
+  },
+
+  async updateDepartment(id: string, payload: Partial<Department>): Promise<Department> {
+    const response = await api.patch(`/admin/departments/${id}`, payload);
+    return response.data;
   }
 };
 

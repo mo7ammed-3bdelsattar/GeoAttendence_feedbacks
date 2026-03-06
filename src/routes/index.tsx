@@ -12,6 +12,7 @@ import { StudentProfilePage } from '../pages/student/StudentProfilePage.tsx';
 import { AdminOverviewPage } from '../pages/admin/AdminOverviewPage.tsx';
 import { AdminUsersPage } from '../pages/admin/AdminUsersPage.tsx';
 import { AdminUserSignupPage } from '../pages/admin/AdminUserSignupPage.tsx';
+import { AdminDepartmentsPage } from '../pages/admin/AdminDepartmentsPage.tsx';
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: UserRole[] }) {
   const user = useAuthStore((s) => s.user);
@@ -70,6 +71,10 @@ export const router = createBrowserRouter([
   {
     path: '/admin/users/signup',
     element: <ProtectedRoute allowedRoles={['admin']}><AdminUserSignupPage /></ProtectedRoute>,
+  },
+  {
+    path: '/admin/departments',
+    element: <ProtectedRoute allowedRoles={['admin']}><AdminDepartmentsPage /></ProtectedRoute>,
   },
 
   { path: '*', element: <Navigate to="/login" replace /> },

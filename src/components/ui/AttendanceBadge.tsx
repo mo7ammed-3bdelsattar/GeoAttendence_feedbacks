@@ -5,7 +5,6 @@ const statusConfig: Record<AttendanceStatus, { label: string; className: string 
   present: { label: 'Present', className: 'bg-success/15 text-success' },
   absent: { label: 'Absent', className: 'bg-danger/15 text-danger' },
   late: { label: 'Late', className: 'bg-secondary/15 text-secondary' },
-  excused: { label: 'Excused', className: 'bg-gray-100 text-gray-600' },
 };
 
 interface AttendanceBadgeProps {
