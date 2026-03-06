@@ -1,4 +1,8 @@
 export * from './auth.ts';
+export * from './course.ts';
+export * from './attendance.ts';
+export * from './feedback.ts';
+export * from './session.ts';
 
 export interface Department {
   id: string;
@@ -35,12 +39,4 @@ export interface Attendance {
   status: 'present' | 'absent' | 'late';
   lat: number;
   lng: number;
-}
-
-export interface Enrollment {
-  id: string;
-  studentId: string;
-  courseId: string;
-  courseName: string;
-  enrolledAt: string;
 }
