@@ -14,6 +14,7 @@ import { AdminUsersPage } from '../pages/admin/AdminUsersPage.tsx';
 import { AdminUserSignupPage } from '../pages/admin/AdminUserSignupPage.tsx';
 import { AdminEnrollmentsPage } from '../pages/admin/AdminEnrollmentsPage.tsx';
 import { AdminDepartmentsPage } from '../pages/admin/AdminDepartmentsPage.tsx';
+import { AdminCoursesPage } from '../pages/admin/AdminCoursesPage.tsx';
 import { AdminClassroomsPage } from '../pages/admin/AdminClassroomsPage.tsx';
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: UserRole[] }) {
@@ -83,6 +84,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowedRoles={['admin']}>
         <AdminDepartmentsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/courses',
+    element: (
+      <ProtectedRoute allowedRoles={['admin']}>
+        <AdminCoursesPage />
       </ProtectedRoute>
     ),
   },

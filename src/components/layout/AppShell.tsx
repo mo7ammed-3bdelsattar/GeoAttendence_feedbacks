@@ -7,6 +7,7 @@ import {
   User,
   LogOut,
   BookOpen,
+  MapPin,
 
   Building2,
 
@@ -27,6 +28,8 @@ const adminNav = [
   { to: '/admin/enrollments', label: 'Enrollments', icon: BookOpen },
 
   { to: '/admin/departments', label: 'Departments', icon: Building2 },
+  { to: '/admin/courses', label: 'Courses', icon: BookOpen },
+  { to: '/admin/classrooms', label: 'Classrooms', icon: MapPin },
 ];
 
 function getNav(role: UserRole) {

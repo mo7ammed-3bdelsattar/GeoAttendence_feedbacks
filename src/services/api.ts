@@ -5,7 +5,7 @@ import {
   sendPasswordResetEmail
 } from 'firebase/auth';
 import { auth as clientAuth } from '../config/firebase';
-import type { User, UserRole } from '../types/index.ts';
+import type { Classroom, Course, Department, Enrollment, User, UserRole } from '../types/index.ts';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -73,7 +73,45 @@ export const adminApi = {
   async updateDepartment(id: string, payload: Partial<Department>): Promise<Department> {
     const response = await api.patch(`/admin/departments/${id}`, payload);
     return response.data;
-  }
+  },
+
+  async getCourses(): Promise<Course[]> {
+    const response = await api.get('/admin/courses');
+    return response.data;
+  },
+
+  async createCourse(payload: Partial<Course>): Promise<Course> {
+    const response = await api.post('/admin/courses', payload);
+    return response.data;
+  },
+
+  async updateCourse(id: string, payload: Partial<Course>): Promise<Course> {
+    const response = await api.patch(`/admin/courses/${id}`, payload);
+    return response.data;
+  },
+
+  async deleteCourse(id: string): Promise<void> {
+    await api.delete(`/admin/courses/${id}`);
+  },
+
+  async getClassrooms(): Promise<Classroom[]> {
+    const response = await api.get('/admin/classrooms');
+    return response.data;
+  },
+
+  async createClassroom(payload: Partial<Classroom>): Promise<Classroom> {
+    const response = await api.post('/admin/classrooms', payload);
+    return response.data;
+  },
+
+  async updateClassroom(id: string, payload: Partial<Classroom>): Promise<Classroom> {
+    const response = await api.patch(`/admin/classrooms/${id}`, payload);
+    return response.data;
+  },
+
+  async deleteClassroom(id: string): Promise<void> {
+    await api.delete(`/admin/classrooms/${id}`);
+  },
 };
 
 export const enrollmentApi = {
