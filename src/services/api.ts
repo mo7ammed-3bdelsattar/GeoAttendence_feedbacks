@@ -1,11 +1,11 @@
 import axios, { type AxiosInstance } from 'axios';
-import { 
-  signInWithEmailAndPassword, 
-  signOut, 
-  sendPasswordResetEmail
+import {
+  signInWithEmailAndPassword,
+  signOut,
+  sendPasswordResetEmail,
 } from 'firebase/auth';
 import { auth as clientAuth } from '../config/firebase';
-import type { User, UserRole, Department } from '../types/index.ts';
+import type { User, UserRole, Department, Classroom } from '../types/index.ts';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -29,7 +29,7 @@ export const authApi = {
       id: firebaseUser.uid,
       name: userData.name || firebaseUser.displayName || email.split('@')[0],
       email: firebaseUser.email || email,
-      role: userData.role
+      role: userData.role,
     };
   },
 
@@ -40,13 +40,13 @@ export const authApi = {
   async resetPassword(email: string): Promise<void> {
     await sendPasswordResetEmail(clientAuth, email);
     await api.post('/auth/reset-password', { email });
-  }
+  },
 };
 
 export const adminApi = {
   async getUsers(role?: UserRole): Promise<User[]> {
-    const response = await api.get('/admin/users', { 
-      params: { role } 
+    const response = await api.get('/admin/users', {
+      params: { role },
     });
     return response.data;
   },
@@ -73,7 +73,26 @@ export const adminApi = {
   async updateDepartment(id: string, payload: Partial<Department>): Promise<Department> {
     const response = await api.patch(`/admin/departments/${id}`, payload);
     return response.data;
-  }
+  },
+
+  async getClassrooms(): Promise<Classroom[]> {
+    const response = await api.get('/admin/classrooms');
+    return response.data;
+  },
+
+  async createClassroom(payload: Partial<Classroom>): Promise<Classroom> {
+    const response = await api.post('/admin/classrooms', payload);
+    return response.data;
+  },
+
+  async updateClassroom(id: string, payload: Partial<Classroom>): Promise<Classroom> {
+    const response = await api.patch(`/admin/classrooms/${id}`, payload);
+    return response.data;
+  },
+
+  async deleteClassroom(id: string): Promise<void> {
+    await api.delete(`/admin/classrooms/${id}`);
+  },
 };
 
 export default api;

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as userController from '../controllers/userController';
 import * as authController from '../controllers/authController';
 import * as departmentController from '../controllers/departmentController';
+import * as classroomController from '../controllers/classroomController';
 
 const router = Router();
 
@@ -18,5 +19,11 @@ router.delete('/admin/users/:id', userController.deleteUser);
 // Department routes
 router.get('/admin/departments', departmentController.getDepartments);
 router.patch('/admin/departments/:id', departmentController.updateDepartment);
+
+// Classroom routes
+router.get('/admin/classrooms', classroomController.getClassrooms);
+router.post('/admin/classrooms', classroomController.createClassroom);
+router.patch('/admin/classrooms/:id', classroomController.updateClassroom);
+router.delete('/admin/classrooms/:id', classroomController.deleteClassroom);
 
 export default router;
