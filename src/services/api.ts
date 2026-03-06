@@ -1,11 +1,11 @@
 import axios, { type AxiosInstance } from 'axios';
-import { 
-  signInWithEmailAndPassword, 
-  signOut, 
+import {
+  signInWithEmailAndPassword,
+  signOut,
   sendPasswordResetEmail
 } from 'firebase/auth';
 import { auth as clientAuth } from '../config/firebase';
-import type { User, UserRole } from '../types/index.ts';
+import type { User, UserRole, Enrollment } from '../types/index.ts';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -45,8 +45,8 @@ export const authApi = {
 
 export const adminApi = {
   async getUsers(role?: UserRole): Promise<User[]> {
-    const response = await api.get('/admin/users', { 
-      params: { role } 
+    const response = await api.get('/admin/users', {
+      params: { role }
     });
     return response.data;
   },
@@ -63,6 +63,27 @@ export const adminApi = {
 
   async deleteUser(id: string): Promise<void> {
     await api.delete(`/admin/users/${id}`);
+  }
+};
+
+export const enrollmentApi = {
+  async getEnrollments(params: { studentId?: string; courseId?: string } = {}): Promise<Enrollment[]> {
+    const response = await api.get('/enrollments', { params });
+    return response.data;
+  },
+
+  async enrollStudent(studentId: string, courseId: string, courseName: string): Promise<Enrollment> {
+    const response = await api.post('/enrollments', { studentId, courseId, courseName });
+    return response.data;
+  },
+
+  async updateEnrollment(id: string, payload: Partial<Enrollment>): Promise<Enrollment> {
+    const response = await api.patch(`/enrollments/${id}`, payload);
+    return response.data;
+  },
+
+  async unenrollStudent(id: string): Promise<void> {
+    await api.delete(`/enrollments/${id}`);
   }
 };
 
