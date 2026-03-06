@@ -56,7 +56,7 @@ export const updateUser = async (req: Request, res: Response) => {
     const userId = String(id);
     await db.collection('users').doc(userId).update(payload);
     const updated = await db.collection('users').doc(userId).get();
-    
+
     res.json({ id: updated.id, ...updated.data() });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

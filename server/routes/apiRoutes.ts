@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import * as userController from '../controllers/userController';
 import * as authController from '../controllers/authController';
+import * as enrollmentController from '../controllers/enrollmentController';
 import * as departmentController from '../controllers/departmentController';
+import * as courseController from '../controllers/courseController';
 import * as classroomController from '../controllers/classroomController';
 
 const router = Router();
@@ -19,6 +21,18 @@ router.delete('/admin/users/:id', userController.deleteUser);
 // Department routes
 router.get('/admin/departments', departmentController.getDepartments);
 router.patch('/admin/departments/:id', departmentController.updateDepartment);
+
+// Enrollment routes
+router.get('/enrollments', enrollmentController.getEnrollments);
+router.post('/enrollments', enrollmentController.enrollStudent);
+router.patch('/enrollments/:id', enrollmentController.updateEnrollment);
+router.delete('/enrollments/:id', enrollmentController.unenrollStudent);
+
+// Course routes
+router.get('/admin/courses', courseController.getCourses);
+router.post('/admin/courses', courseController.createCourse);
+router.patch('/admin/courses/:id', courseController.updateCourse);
+router.delete('/admin/courses/:id', courseController.deleteCourse);
 
 // Classroom routes
 router.get('/admin/classrooms', classroomController.getClassrooms);

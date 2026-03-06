@@ -2,10 +2,10 @@ import axios, { type AxiosInstance } from 'axios';
 import {
   signInWithEmailAndPassword,
   signOut,
-  sendPasswordResetEmail,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { auth as clientAuth } from '../config/firebase';
-import type { User, UserRole, Department, Classroom } from '../types/index.ts';
+import type { User, UserRole } from '../types/index.ts';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -29,7 +29,7 @@ export const authApi = {
       id: firebaseUser.uid,
       name: userData.name || firebaseUser.displayName || email.split('@')[0],
       email: firebaseUser.email || email,
-      role: userData.role,
+      role: userData.role
     };
   },
 
@@ -40,13 +40,13 @@ export const authApi = {
   async resetPassword(email: string): Promise<void> {
     await sendPasswordResetEmail(clientAuth, email);
     await api.post('/auth/reset-password', { email });
-  },
+  }
 };
 
 export const adminApi = {
   async getUsers(role?: UserRole): Promise<User[]> {
     const response = await api.get('/admin/users', {
-      params: { role },
+      params: { role }
     });
     return response.data;
   },
@@ -73,26 +73,28 @@ export const adminApi = {
   async updateDepartment(id: string, payload: Partial<Department>): Promise<Department> {
     const response = await api.patch(`/admin/departments/${id}`, payload);
     return response.data;
-  },
+  }
+};
 
-  async getClassrooms(): Promise<Classroom[]> {
-    const response = await api.get('/admin/classrooms');
+export const enrollmentApi = {
+  async getEnrollments(params: { studentId?: string; courseId?: string } = {}): Promise<Enrollment[]> {
+    const response = await api.get('/enrollments', { params });
     return response.data;
   },
 
-  async createClassroom(payload: Partial<Classroom>): Promise<Classroom> {
-    const response = await api.post('/admin/classrooms', payload);
+  async enrollStudent(studentId: string, courseId: string, courseName: string): Promise<Enrollment> {
+    const response = await api.post('/enrollments', { studentId, courseId, courseName });
     return response.data;
   },
 
-  async updateClassroom(id: string, payload: Partial<Classroom>): Promise<Classroom> {
-    const response = await api.patch(`/admin/classrooms/${id}`, payload);
+  async updateEnrollment(id: string, payload: Partial<Enrollment>): Promise<Enrollment> {
+    const response = await api.patch(`/enrollments/${id}`, payload);
     return response.data;
   },
 
-  async deleteClassroom(id: string): Promise<void> {
-    await api.delete(`/admin/classrooms/${id}`);
-  },
+  async unenrollStudent(id: string): Promise<void> {
+    await api.delete(`/enrollments/${id}`);
+  }
 };
 
 export default api;
