@@ -57,8 +57,8 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password'
           ? 'Invalid email or password.'
           : err.code === 'auth/too-many-requests'
-          ? 'Too many attempts. Please try again later.'
-          : err.message ?? 'Login failed.';
+            ? 'Too many attempts. Please try again later.'
+            : err.message ?? 'Login failed.';
       Alert.alert('Login Failed', msg);
     } finally {
       setLoading(false);
@@ -68,16 +68,18 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <KeyboardAvoidingView
       style={styles.root}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      {/* Glow orbs - moved outside scroll for better interaction */}
+      <View style={styles.glowTop} pointerEvents="none" />
+      <View style={styles.glowBottom} pointerEvents="none" />
+
       <ScrollView
+        style={{ flex: 1, zIndex: 1 }}
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Glow orbs */}
-        <View style={styles.glowTop} />
-        <View style={styles.glowBottom} />
 
         {/* Header */}
         <View style={styles.header}>

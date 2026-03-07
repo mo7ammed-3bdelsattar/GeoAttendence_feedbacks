@@ -27,10 +27,14 @@ const InputField: React.FC<InputFieldProps> = ({
   const [focused, setFocused] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  const inputRef = React.useRef<TextInput>(null);
+
   return (
     <View style={styles.container}>
       <Text style={styles.label}>{label}</Text>
-      <View
+      <TouchableOpacity
+        activeOpacity={1}
+        onPress={() => inputRef.current?.focus()}
         style={[
           styles.inputWrapper,
           focused && styles.inputWrapperFocused,
@@ -39,7 +43,12 @@ const InputField: React.FC<InputFieldProps> = ({
       >
         {leftIcon && <View style={styles.leftIcon}>{leftIcon}</View>}
         <TextInput
-          style={[styles.input, leftIcon ? styles.inputWithIcon : null]}
+          ref={inputRef}
+          style={[
+            styles.input,
+            leftIcon ? styles.inputWithIcon : null,
+            { height: '100%' },
+          ]}
           placeholderTextColor={Colors.textMuted}
           secureTextEntry={isPassword && !showPassword}
           onFocus={() => setFocused(true)}
@@ -55,7 +64,7 @@ const InputField: React.FC<InputFieldProps> = ({
             <Text style={styles.eyeText}>{showPassword ? '🙈' : '👁️'}</Text>
           </TouchableOpacity>
         )}
-      </View>
+      </TouchableOpacity>
       {!!error && <Text style={styles.errorText}>{error}</Text>}
     </View>
   );
