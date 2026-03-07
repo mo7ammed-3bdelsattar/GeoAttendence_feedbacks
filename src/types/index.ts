@@ -1,5 +1,6 @@
 export * from './auth.ts';
 export * from './course.ts';
+export * from './enrollment.ts';
 export * from './attendance.ts';
 export * from './feedback.ts';
 export * from './session.ts';

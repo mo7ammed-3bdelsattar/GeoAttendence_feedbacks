@@ -6,7 +6,11 @@ import {
   Home,
   User,
   LogOut,
+  BookOpen,
+  MapPin,
+
   Building2,
+
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../../stores/authStore.ts';
@@ -21,7 +25,11 @@ const studentNav = [
 const adminNav = [
   { to: '/admin', label: 'Overview', icon: LayoutDashboard },
   { to: '/admin/users', label: 'Users', icon: Users },
+  { to: '/admin/enrollments', label: 'Enrollments', icon: BookOpen },
+
   { to: '/admin/departments', label: 'Departments', icon: Building2 },
+  { to: '/admin/courses', label: 'Courses', icon: BookOpen },
+  { to: '/admin/classrooms', label: 'Classrooms', icon: MapPin },
 ];
 
 function getNav(role: UserRole) {
@@ -60,7 +68,7 @@ export function AppShell({ children, title }: AppShellProps) {
         <nav className="flex-1 p-3 space-y-1">
           {nav.map((item) => {
             const Icon = item.icon;
-            const active = location.pathname === item.to || location.pathname.startsWith(item.to + '/');
+            const active = location.pathname === item.to;
             return (
               <Link
                 key={item.to}

@@ -31,6 +31,6 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`[SERVER] Node backend running on port ${PORT}`);
-    console.log(`[SERVER] Environment: ${process.env.NODE_ENV}`);
+  console.log(`[SERVER] Node backend running on port ${PORT}`);
+  console.log(`[SERVER] Environment: ${process.env.NODE_ENV}`);
 });
