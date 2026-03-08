@@ -9,6 +9,7 @@ export interface Department {
   id: string;
   name: string;
   code: string;
+  facultyName?: string;
 }
 
 export interface Classroom {
