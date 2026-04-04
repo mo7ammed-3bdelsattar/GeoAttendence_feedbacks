@@ -5,7 +5,8 @@ import {
   sendPasswordResetEmail
 } from 'firebase/auth';
 import { auth as clientAuth } from '../config/firebase';
-import type { Classroom, Course, Department, Enrollment, User, UserRole } from '../types/index.ts';
+import { getAccessToken, clearAuth } from '../utils/storage.ts';
+import type { Classroom, Course, Department, Enrollment, User, UserRole, Session } from '../types/index.ts';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -17,28 +18,36 @@ const api: AxiosInstance = axios.create({
   },
 });
 
+// Add request interceptor to attach auth token
+api.interceptors.request.use(
+  (config) => {
+    const token = getAccessToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
 export const authApi = {
   async login(email: string, password: string, role: UserRole): Promise<User> {
-    const userCredential = await signInWithEmailAndPassword(clientAuth, email, password);
-    const firebaseUser = userCredential.user;
-    const idToken = await firebaseUser.getIdToken();
-    const response = await api.post('/auth/login', { idToken, role });
+    const response = await api.post('/auth/login', { email, password, role });
     const userData = response.data;
 
     return {
-      id: firebaseUser.uid,
-      name: userData.name || firebaseUser.displayName || email.split('@')[0],
-      email: firebaseUser.email || email,
+      id: userData.id,
+      name: userData.name,
+      email: userData.email,
       role: userData.role
     };
   },
 
   async logout(): Promise<void> {
-    await signOut(clientAuth);
+    // Mock logout
   },
 
   async resetPassword(email: string): Promise<void> {
-    await sendPasswordResetEmail(clientAuth, email);
     await api.post('/auth/reset-password', { email });
   }
 };
@@ -134,5 +143,49 @@ export const enrollmentApi = {
     await api.delete(`/enrollments/${id}`);
   }
 };
+
+export const sessionApi = {
+  async getSessions(params: { courseId?: string; facultyId?: string } = {}): Promise<Session[]> {
+    const response = await api.get('/sessions', { params });
+    return response.data;
+  },
+
+  async createSession(payload: Partial<Session>): Promise<Session> {
+    const response = await api.post('/sessions', payload);
+    return response.data;
+  },
+
+  async updateSession(id: string, payload: Partial<Session>): Promise<Session> {
+    const response = await api.patch(`/sessions/${id}`, payload);
+    return response.data;
+  },
+
+  async deleteSession(id: string): Promise<void> {
+    await api.delete(`/sessions/${id}`);
+  },
+
+  async closeSession(id: string): Promise<void> {
+    await api.post(`/sessions/${id}/close`);
+  },
+
+  async getAttendance(sessionId: string): Promise<any[]> {
+    const response = await api.get(`/sessions/${sessionId}/attendance`);
+    return response.data;
+  }
+};
+
+// Add response interceptor to handle 401 errors
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Clear authentication on 401
+      clearAuth();
+      // Optionally redirect to login
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
 
 export default api;

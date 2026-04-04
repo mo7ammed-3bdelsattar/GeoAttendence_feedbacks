@@ -1,7 +1,37 @@
-import { db } from '../server/config/firebase-admin';
+import { db, auth as adminAuth } from '../server/config/firebase-admin';
 
 async function seedDatabase() {
   console.log('Seeding database...');
+
+  // Seed users
+  const users = [
+    { email: 'student@uni.edu', password: 'password123', name: 'John Student', role: 'student' },
+    { email: 'faculty@uni.edu', password: 'password123', name: 'Dr. Jane Faculty', role: 'faculty' },
+    { email: 'admin@uni.edu', password: 'password123', name: 'Admin User', role: 'admin' },
+  ];
+
+  for (const userData of users) {
+    try {
+      const userRecord = await adminAuth.createUser({
+        email: userData.email,
+        password: userData.password,
+        displayName: userData.name,
+      });
+      await db.collection('users').doc(userRecord.uid).set({
+        name: userData.name,
+        email: userData.email,
+        role: userData.role,
+      });
+      console.log(`User ${userData.email} created with UID: ${userRecord.uid}`);
+    } catch (error: any) {
+      if (error.code === 'auth/email-already-exists') {
+        console.log(`User ${userData.email} already exists`);
+      } else {
+        console.error(`Error creating user ${userData.email}:`, error);
+      }
+    }
+  }
+  console.log('Users seeded');
 
   // Seed departments
   const departments = [

@@ -8,6 +8,7 @@ import { ForgotPasswordPage } from '../pages/auth/ForgotPasswordPage.tsx';
 
 import { StudentHomePage } from '../pages/student/StudentHomePage.tsx';
 import { StudentProfilePage } from '../pages/student/StudentProfilePage.tsx';
+import { FacultySessionsPage } from '../pages/faculty/FacultySessionsPage.tsx';
 
 import { AdminOverviewPage } from '../pages/admin/AdminOverviewPage.tsx';
 import { AdminUsersPage } from '../pages/admin/AdminUsersPage.tsx';
@@ -62,6 +63,10 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute allowedRoles={['student']}><StudentProfilePage /></ProtectedRoute>,
   },
   { path: '/faculty', element: <Navigate to="/faculty/sessions" replace /> },
+  {
+    path: '/faculty/sessions',
+    element: <ProtectedRoute allowedRoles={['faculty']}><FacultySessionsPage /></ProtectedRoute>,
+  },
 
   {
     path: '/admin',

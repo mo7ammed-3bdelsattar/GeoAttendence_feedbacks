@@ -5,6 +5,7 @@ import * as enrollmentController from '../controllers/enrollmentController';
 import * as departmentController from '../controllers/departmentController';
 import * as courseController from '../controllers/courseController';
 import * as classroomController from '../controllers/classroomController';
+import * as sessionController from '../controllers/sessionController';
 
 const router = Router();
 
@@ -39,5 +40,13 @@ router.get('/admin/classrooms', classroomController.getClassrooms);
 router.post('/admin/classrooms', classroomController.createClassroom);
 router.patch('/admin/classrooms/:id', classroomController.updateClassroom);
 router.delete('/admin/classrooms/:id', classroomController.deleteClassroom);
+
+// Session routes
+router.get('/sessions', sessionController.getSessions);
+router.post('/sessions', sessionController.createSession);
+router.patch('/sessions/:id', sessionController.updateSession);
+router.delete('/sessions/:id', sessionController.deleteSession);
+router.post('/sessions/:id/close', sessionController.closeSession);
+router.get('/sessions/:id/attendance', sessionController.getAttendance);
 
 export default router;

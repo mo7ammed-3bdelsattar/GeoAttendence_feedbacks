@@ -22,6 +22,10 @@ const studentNav = [
   { to: '/student/profile', label: 'Profile', icon: User },
 ];
 
+const facultyNav = [
+  { to: '/faculty', label: 'Sessions', icon: BookOpen },
+];
+
 const adminNav = [
   { to: '/admin', label: 'Overview', icon: LayoutDashboard },
   { to: '/admin/users', label: 'Users', icon: Users },
@@ -34,6 +38,7 @@ const adminNav = [
 
 function getNav(role: UserRole) {
   if (role === 'student') return studentNav;
+  if (role === 'faculty') return facultyNav;
   return adminNav;
 }
 

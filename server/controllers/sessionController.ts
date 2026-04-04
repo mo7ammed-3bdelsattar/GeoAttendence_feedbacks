@@ -66,6 +66,16 @@ export const closeSession = async (req: Request, res: Response) => {
   }
 };
 
+export const deleteSession = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    await db.collection('sessions').doc(id).delete();
+    res.json({ message: 'Session deleted' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 export const getAttendance = async (req: Request, res: Response) => {
   try {
     const { sessionId } = req.params;
