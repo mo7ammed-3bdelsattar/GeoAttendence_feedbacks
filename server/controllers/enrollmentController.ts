@@ -33,10 +33,25 @@ export const getEnrollments = async (req: Request, res: Response) => {
  */
 export const enrollStudent = async (req: Request, res: Response) => {
     try {
-        const { studentId, courseId, courseName } = req.body;
+        const { studentId, courseId } = req.body;
 
         if (!studentId || !courseId) {
             return res.status(400).json({ error: 'studentId and courseId are required' });
+        }
+
+        const [studentDoc, courseDoc] = await Promise.all([
+            db.collection('users').doc(String(studentId)).get(),
+            db.collection('courses').doc(String(courseId)).get()
+        ]);
+
+        if (!studentDoc.exists || studentDoc.data()?.role !== 'student') {
+            return res.status(400).json({ error: 'Invalid studentId.' });
+        }
+        if (!courseDoc.exists) {
+            return res.status(400).json({ error: 'Invalid courseId.' });
+        }
+        if (courseDoc.data()?.isOpen !== true) {
+            return res.status(409).json({ error: 'Enrollment is closed for this course.' });
         }
 
         // Check if enrollment already exists
@@ -52,12 +67,26 @@ export const enrollStudent = async (req: Request, res: Response) => {
         const newEnrollment = {
             studentId,
             courseId,
-            courseName: courseName || 'Unknown Course',
-            enrolledAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
         };
 
         const docRef = await db.collection('enrollments').add(newEnrollment);
         res.status(201).json({ id: docRef.id, ...newEnrollment });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+export const getEnrollmentsByStudent = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        if (!id) {
+            return res.status(400).json({ error: 'Student ID is required' });
+        }
+
+        const snapshot = await db.collection('enrollments').where('studentId', '==', String(id)).get();
+        const enrollments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        res.json(enrollments);
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }

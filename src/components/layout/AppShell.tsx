@@ -8,6 +8,9 @@ import {
   LogOut,
   BookOpen,
   MapPin,
+  CalendarDays,
+  MessageSquare,
+  Star,
 
   Building2,
 
@@ -20,20 +23,28 @@ import { cn } from '../../utils/cn.ts';
 const studentNav = [
   { to: '/student', label: 'Home', icon: Home },
   { to: '/student/profile', label: 'Profile', icon: User },
+  { to: '/student/feedback', label: 'Feedback', icon: MessageSquare },
 ];
 
 const adminNav = [
   { to: '/admin', label: 'Overview', icon: LayoutDashboard },
   { to: '/admin/users', label: 'Users', icon: Users },
   { to: '/admin/enrollments', label: 'Enrollments', icon: BookOpen },
-
+  { to: '/admin/sessions', label: 'Sessions', icon: CalendarDays },
   { to: '/admin/departments', label: 'Departments', icon: Building2 },
   { to: '/admin/courses', label: 'Courses', icon: BookOpen },
   { to: '/admin/classrooms', label: 'Classrooms', icon: MapPin },
+  { to: '/admin/feedback', label: 'Course Feedback', icon: MessageSquare },
+];
+
+const facultyNav = [
+  { to: '/faculty/sessions', label: 'My Sessions', icon: CalendarDays },
+  { to: '/faculty/ratings', label: 'My Ratings', icon: Star },
 ];
 
 function getNav(role: UserRole) {
   if (role === 'student') return studentNav;
+  if (role === 'faculty') return facultyNav;
   return adminNav;
 }
 

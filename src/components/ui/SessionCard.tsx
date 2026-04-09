@@ -17,7 +17,7 @@ const statusColors: Record<string, string> = {
 };
 
 export function SessionCard({ session, onClick, action, className }: SessionCardProps) {
-  const statusClass = statusColors[session.status] ?? 'bg-gray-100 text-gray-700';
+  const statusClass = statusColors[session.status ?? 'scheduled'] ?? 'bg-gray-100 text-gray-700';
 
   return (
     <div
@@ -46,7 +46,7 @@ export function SessionCard({ session, onClick, action, className }: SessionCard
             </span>
           </div>
           <span className={cn('inline-block mt-2 px-2 py-0.5 rounded-full text-xs font-medium', statusClass)}>
-            {session.status}
+            {session.status ?? 'scheduled'}
           </span>
         </div>
         {action}

@@ -45,7 +45,18 @@ export const updateClassroom = async (req: Request, res: Response) => {
 export const deleteClassroom = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    await db.collection('classrooms').doc(id).delete();
+    const classroomRef = db.collection('classrooms').doc(id);
+    const classroomDoc = await classroomRef.get();
+    if (!classroomDoc.exists) {
+      return res.status(404).json({ error: 'Classroom not found.' });
+    }
+
+    const sessionsRef = await db.collection('sessions').where('classroomId', '==', id).limit(1).get();
+    if (!sessionsRef.empty) {
+      return res.status(409).json({ error: 'Cannot delete, classroom is used in sessions.' });
+    }
+
+    await classroomRef.delete();
 
     res.status(204).send();
   } catch (error: any) {
