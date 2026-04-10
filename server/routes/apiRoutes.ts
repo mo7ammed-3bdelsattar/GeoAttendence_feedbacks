@@ -21,7 +21,9 @@ router.delete('/admin/users/:id', userController.deleteUser);
 
 // Department routes
 router.get('/admin/departments', departmentController.getDepartments);
+router.post('/admin/departments', departmentController.createDepartment);
 router.patch('/admin/departments/:id', departmentController.updateDepartment);
+router.delete('/admin/departments/:id', departmentController.deleteDepartment);
 
 // Enrollment routes
 router.get('/enrollments', enrollmentController.getEnrollments);

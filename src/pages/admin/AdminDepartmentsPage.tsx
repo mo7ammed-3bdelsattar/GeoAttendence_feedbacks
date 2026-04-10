@@ -18,7 +18,7 @@ import { AppShell } from '../../components/layout/AppShell.tsx';
 import { Modal } from '../../components/Modal/index.ts';
 import { FormInput } from '../../components/forms/FormInput.tsx';
 import { TableSkeleton } from '../../components/ui/LoadingSkeleton.tsx';
-import { departmentsService } from '../../services/departmentsService.ts';
+import { adminApi } from '../../services/api.ts';
 import type { Department } from '../../types/index.ts';
 
 type SortKey = 'code' | 'name';
@@ -48,7 +48,7 @@ export function AdminDepartmentsPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const data = await departmentsService.getDepartments();
+      const data = await adminApi.getDepartments();
       setDepartments(data ?? []);
     } catch (err: unknown) {
       console.error('Failed to fetch data:', err);
@@ -106,7 +106,7 @@ export function AdminDepartmentsPage() {
     }
     setSubmitting(true);
     try {
-      const created = await departmentsService.createDepartment({
+      const created = await adminApi.createDepartment({
         name: name.trim(),
         code: code.trim(),
         facultyName: facultyName.trim() || undefined,
@@ -140,7 +140,7 @@ export function AdminDepartmentsPage() {
     }
     setEditSubmitting(true);
     try {
-      const updated = await departmentsService.updateDepartment(editDept.id, {
+      const updated = await adminApi.updateDepartment(editDept.id, {
         name: name.trim(),
         code: code.trim(),
         facultyName: facultyName.trim() || undefined,
@@ -161,7 +161,7 @@ export function AdminDepartmentsPage() {
   const handleDelete = async () => {
     if (!deleteDept) return;
     try {
-      await departmentsService.deleteDepartment(deleteDept.id);
+      await adminApi.deleteDepartment(deleteDept.id);
       setDepartments((prev) => prev.filter((d) => d.id !== deleteDept.id));
       toast.success('Department deleted.');
     } catch (err: unknown) {

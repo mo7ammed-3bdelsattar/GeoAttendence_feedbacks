@@ -3,40 +3,63 @@ import { db, auth as adminAuth } from '../config/firebase-admin';
 
 export const login = async (req: Request, res: Response) => {
   try {
-    const { email, password, role } = req.body;
-    console.log('Login attempt:', { email, password, role });
+    const { email, password, role, token } = req.body;
+    console.log('Login attempt:', { email, role, hasToken: !!token });
 
-    // Mock authentication - in real app, use proper auth
-    const mockUsers = {
-      'student@uni.edu': { password: 'password123', role: 'student', name: 'John Student' },
-      'faculty@uni.edu': { password: 'password123', role: 'faculty', name: 'Dr. Jane Faculty' },
-      'admin@uni.edu': { password: 'password123', role: 'admin', name: 'Admin User' },
-      'ahmedaymanmido307@gmail.com': { password: 'password123', role: 'faculty', name: 'Ahmed Ayman' },
-    };
+    let uid = '';
+    let finalEmail = email?.toLowerCase().trim();
 
-    const normalizedEmail = email.toLowerCase().trim();
-    console.log('Normalized email:', normalizedEmail);
-    const user = mockUsers[normalizedEmail as keyof typeof mockUsers];
-    console.log('Found user:', user);
-    if (!user || user.password !== password || user.role !== role) {
-      console.log('Invalid credentials');
-      return res.status(401).json({ error: 'Invalid credentials' });
+    if (token) {
+      // Authenticate via Firebase token
+      const decoded = await adminAuth.verifyIdToken(token);
+      uid = decoded.uid;
+      finalEmail = decoded.email || finalEmail;
+      console.log('Token verified for:', finalEmail);
+      
+      const userDoc = await db.collection('users').doc(uid).get();
+      if (!userDoc.exists) {
+        return res.status(401).json({ error: 'User profile not found in DB.' });
+      }
+
+      const userData = userDoc.data();
+      if (userData?.role !== role) {
+        return res.status(403).json({ error: 'Role mismatch.' });
+      }
+
+      return res.json({
+        id: uid,
+        name: userData?.name || finalEmail,
+        email: finalEmail,
+        role: userData?.role
+      });
+    } else {
+      // Mock authentication - backward compatibility
+      const mockUsers = {
+        'student@uni.edu': { password: 'password123', role: 'student', name: 'John Student' },
+        'faculty@uni.edu': { password: 'password123', role: 'faculty', name: 'Dr. Jane Faculty' },
+        'admin@uni.edu': { password: 'password123', role: 'admin', name: 'Admin User' },
+        'ahmedaymanmido307@gmail.com': { password: 'password123', role: 'faculty', name: 'Ahmed Ayman' },
+      };
+
+      const user = mockUsers[finalEmail as keyof typeof mockUsers];
+      if (!user || user.password !== password || user.role !== role) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+
+      uid = `mock-${finalEmail}`;
+      await db.collection('users').doc(uid).set({
+        name: user.name,
+        email: finalEmail,
+        role: user.role
+      }, { merge: true });
+
+      return res.json({
+        id: uid,
+        name: user.name,
+        email: finalEmail,
+        role: user.role
+      });
     }
-
-    // Create or update user in DB
-    const uid = `mock-${normalizedEmail}`;
-    await db.collection('users').doc(uid).set({
-      name: user.name,
-      email: normalizedEmail,
-      role: user.role
-    });
-
-    res.json({
-      id: uid,
-      name: user.name,
-      email: normalizedEmail,
-      role: user.role
-    });
   } catch (error: any) {
     console.error('Login error:', error);
     res.status(500).json({ error: error.message });

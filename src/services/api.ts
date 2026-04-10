@@ -32,15 +32,33 @@ api.interceptors.request.use(
 
 export const authApi = {
   async login(email: string, password: string, role: UserRole): Promise<User> {
-    const response = await api.post('/auth/login', { email, password, role });
-    const userData = response.data;
-
-    return {
-      id: userData.id,
-      name: userData.name,
-      email: userData.email,
-      role: userData.role
-    };
+    try {
+      const userCredential = await signInWithEmailAndPassword(clientAuth, email, password);
+      const token = await userCredential.user.getIdToken();
+      
+      const response = await api.post('/auth/login', { token, role, email });
+      const userData = response.data;
+  
+      return {
+        id: userData.id,
+        name: userData.name,
+        email: userData.email,
+        role: userData.role
+      };
+    } catch (error: any) {
+      // Fallback for mock users or pure backend auth if Firebase Auth fails
+      // or we can remove the fallback if Firebase is strict.
+      // We'll just pass it through so the backend can still try mock auth if needed.
+      const response = await api.post('/auth/login', { email, password, role });
+      const userData = response.data;
+      
+      return {
+        id: userData.id,
+        name: userData.name,
+        email: userData.email,
+        role: userData.role
+      };
+    }
   },
 
   async logout(): Promise<void> {
@@ -79,9 +97,18 @@ export const adminApi = {
     return response.data;
   },
 
+  async createDepartment(payload: Partial<Department>): Promise<Department> {
+    const response = await api.post('/admin/departments', payload);
+    return response.data;
+  },
+
   async updateDepartment(id: string, payload: Partial<Department>): Promise<Department> {
     const response = await api.patch(`/admin/departments/${id}`, payload);
     return response.data;
+  },
+
+  async deleteDepartment(id: string): Promise<void> {
+    await api.delete(`/admin/departments/${id}`);
   },
 
   async getCourses(): Promise<Course[]> {

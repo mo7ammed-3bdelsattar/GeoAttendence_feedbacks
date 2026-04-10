@@ -18,8 +18,7 @@ import { AppShell } from '../../components/layout/AppShell.tsx';
 import { Modal } from '../../components/Modal/index.ts';
 import { FormInput } from '../../components/forms/FormInput.tsx';
 import { TableSkeleton } from '../../components/ui/LoadingSkeleton.tsx';
-import { coursesService, type CourseInput } from '../../services/coursesService.ts';
-import { departmentsService } from '../../services/departmentsService.ts';
+import { adminApi } from '../../services/api.ts';
 import type { Course, Department } from '../../types/index.ts';
 
 type SortKey = 'name' | 'departmentName' | 'enrolledCount';
@@ -52,8 +51,8 @@ export function AdminCoursesPage() {
     setLoading(true);
     try {
       const [cData, dData] = await Promise.all([
-        coursesService.getCourses(),
-        departmentsService.getDepartments(),
+        adminApi.getCourses(),
+        adminApi.getDepartments(),
       ]);
       setCourses(cData ?? []);
       setDepartments(dData ?? []);
@@ -125,14 +124,14 @@ export function AdminCoursesPage() {
     }
     setSubmitting(true);
     try {
-      const payload: CourseInput = {
+      const payload = {
         name: name.trim(),
         code: code.trim(),
         departmentId: dept.id,
         departmentName: dept.name,
         facultyName: facultyName.trim() || undefined,
       };
-      const created = await coursesService.createCourse(payload);
+      const created = await adminApi.createCourse(payload);
       setCourses((prev) => [...prev, created]);
       toast.success('Course added successfully');
       setAddOpen(false);
@@ -169,14 +168,14 @@ export function AdminCoursesPage() {
     }
     setEditSubmitting(true);
     try {
-      const payload: CourseInput = {
+      const payload = {
         name: name.trim(),
         code: code.trim(),
         departmentId: dept.id,
         departmentName: dept.name,
         facultyName: facultyName.trim() || undefined,
       };
-      const updated = await coursesService.updateCourse(editCourse.id, payload);
+      const updated = await adminApi.updateCourse(editCourse.id, payload);
       setCourses((prev) =>
         prev.map((c) => (c.id === editCourse.id ? updated : c)),
       );
@@ -193,7 +192,7 @@ export function AdminCoursesPage() {
   const handleDelete = async () => {
     if (!deleteCourse) return;
     try {
-      await coursesService.deleteCourse(deleteCourse.id);
+      await adminApi.deleteCourse(deleteCourse.id);
       setCourses((prev) => prev.filter((c) => c.id !== deleteCourse.id));
       toast.success('Course deleted.');
     } catch (err: unknown) {
