@@ -23,7 +23,7 @@ type Props = {
 
 const ROLES = [
   { label: '🎓 Student', value: 'student' },
-  { label: '📚 Instructor', value: 'instructor' },
+  { label: '📚 Instructor', value: 'faculty' },
   { label: '🛡️ Admin', value: 'admin' },
 ];
 
@@ -50,7 +50,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     if (!validate()) return;
     setLoading(true);
     try {
-      await login(email.trim(), password);
+      await login(email.trim(), password, role as any);
       // Navigation handled by AuthContext listener in AppNavigator
     } catch (err: any) {
       const msg =

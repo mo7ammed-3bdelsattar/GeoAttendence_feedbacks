@@ -35,6 +35,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pendingRole, setPendingRole] = useState<UserRole | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
@@ -51,10 +52,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
               role: data.role as UserRole,
             });
           } else {
-            setUser(null);
+            // Fallback: If user doc is not in firestore, use the pending role from login screen
+            setUser({
+              uid: fbUser.uid,
+              email: fbUser.email,
+              name: fbUser.displayName || fbUser.email?.split('@')[0] || 'User',
+              role: pendingRole || 'student'
+            });
           }
         } catch {
-          setUser(null);
+          // Fallback on error
+          setUser({
+            uid: fbUser.uid,
+            email: fbUser.email,
+            name: fbUser.displayName || fbUser.email?.split('@')[0] || 'User',
+            role: pendingRole || 'student'
+          });
         }
       } else {
         setUser(null);
@@ -63,9 +76,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     });
 
     return unsubscribe;
-  }, []);
+  }, [pendingRole]);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, role?: UserRole) => {
+    if (role) setPendingRole(role);
     await signInWithEmailAndPassword(auth, email, password);
     // User state is updated automatically via onAuthStateChanged
   };
@@ -80,7 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   return (
     <AuthContext.Provider
-      value={{ user, firebaseUser, loading, login, logout, resetPassword }}
+      value={{ user, firebaseUser, loading, login: login as any, logout, resetPassword }}
     >
       {children}
     </AuthContext.Provider>
