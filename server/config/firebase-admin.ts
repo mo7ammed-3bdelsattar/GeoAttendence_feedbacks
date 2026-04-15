@@ -5,39 +5,50 @@ import fs from 'fs';
 
 dotenv.config();
 
-const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './service-account.json';
-const absolutePath = path.resolve(process.cwd(), serviceAccountPath);
-
-const inlineConfig = {
-  projectId: process.env.FIREBASE_PROJECT_ID,
-  clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-  privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-};
-
 function getCredential() {
-  if (fs.existsSync(absolutePath)) {
-    console.log('[FIREBASE-ADMIN] Using service account file.');
-    return admin.credential.cert(absolutePath);
+  const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './service-account.json';
+  
+  // Try multiple possible locations for the service account file
+  const possiblePaths = [
+    path.resolve(process.cwd(), serviceAccountPath),
+    path.resolve(process.cwd(), 'src/assets/service-account.json'),
+    path.resolve(__dirname, '../../src/assets/service-account.json'),
+    path.resolve(__dirname, '../service-account.json')
+  ];
+
+  for (const absPath of possiblePaths) {
+    if (fs.existsSync(absPath)) {
+      console.log(`[FIREBASE-ADMIN] Using service account file at: ${absPath}`);
+      return admin.credential.cert(absPath);
+    }
   }
+
+  const inlineConfig = {
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+    privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+  };
 
   if (inlineConfig.projectId && inlineConfig.clientEmail && inlineConfig.privateKey) {
     console.log('[FIREBASE-ADMIN] Using individual environment variables.');
     return admin.credential.cert(inlineConfig as admin.ServiceAccount);
   }
 
-  console.warn('[FIREBASE-ADMIN] No valid credentials found. Ensure service-account.json exists or check .env variables.');
+  console.warn('[FIREBASE-ADMIN] WARNING: No service_account.json found and env variables incomplete. Falling back to applicationDefault().');
   return admin.credential.applicationDefault();
 }
 
 try {
-  admin.initializeApp({
-    credential: getCredential(),
-    projectId: process.env.FIREBASE_PROJECT_ID,
-    databaseURL: process.env.FIREBASE_DATABASE_URL,
-    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-  });
-
-  console.log('[FIREBASE-ADMIN] Initialized successfully.');
+  // Check if already initialized to prevent errors
+  if (!admin.apps.length) {
+    admin.initializeApp({
+      credential: getCredential(),
+      projectId: process.env.FIREBASE_PROJECT_ID || 'geo-attendance-6e1a4',
+      databaseURL: process.env.FIREBASE_DATABASE_URL,
+      storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+    });
+    console.log('[FIREBASE-ADMIN] Initialized successfully.');
+  }
 } catch (error: any) {
   console.error('[FIREBASE-ADMIN] Initialization failed:', error.message);
 }

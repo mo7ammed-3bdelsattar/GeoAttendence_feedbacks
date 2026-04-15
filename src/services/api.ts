@@ -5,6 +5,7 @@ import {
   sendPasswordResetEmail
 } from 'firebase/auth';
 import { auth as clientAuth } from '../config/firebase';
+import { getAccessToken } from '../utils/storage.ts';
 import type { Attendance, Classroom, Course, Department, Enrollment, Session, User, UserRole } from '../types/index.ts';
 import type { Feedback } from '../types/feedback.ts';
 

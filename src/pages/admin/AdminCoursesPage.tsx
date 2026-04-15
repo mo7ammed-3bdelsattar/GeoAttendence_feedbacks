@@ -12,9 +12,11 @@ import {
   ChevronDown,
   LayoutGrid,
   List,
+  Loader2,
+  Lock,
+  LockOpen
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Loader2, Lock, LockOpen, Trash2 } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell.tsx';
 import { Modal } from '../../components/Modal/index.ts';
 import { FormInput } from '../../components/forms/FormInput.tsx';
@@ -107,7 +109,7 @@ export function AdminCoursesPage() {
     setDeletingId(course.id);
     try {
       await adminApi.deleteCourse(course.id);
-      setCourses((prev) => prev.filter((item) => item.id !== course.id));
+      setEnrollments((prev) => prev.filter((item) => item.id !== course.id));
       toast.success('Course deleted successfully.');
     } catch (error: any) {
       toast.error(error?.response?.data?.error || 'Failed to delete course.');
