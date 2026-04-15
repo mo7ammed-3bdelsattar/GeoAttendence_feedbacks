@@ -5,8 +5,8 @@ import {
   sendPasswordResetEmail
 } from 'firebase/auth';
 import { auth as clientAuth } from '../config/firebase';
-import { getAccessToken, clearAuth } from '../utils/storage.ts';
-import type { Classroom, Course, Department, Enrollment, User, UserRole, Session } from '../types/index.ts';
+import type { Attendance, Classroom, Course, Department, Enrollment, Session, User, UserRole } from '../types/index.ts';
+import type { Feedback } from '../types/feedback.ts';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -116,6 +116,11 @@ export const adminApi = {
     return response.data;
   },
 
+  async getOpenCourses(): Promise<Course[]> {
+    const response = await api.get('/courses', { params: { open: true } });
+    return response.data;
+  },
+
   async createCourse(payload: Partial<Course>): Promise<Course> {
     const response = await api.post('/admin/courses', payload);
     return response.data;
@@ -156,8 +161,13 @@ export const enrollmentApi = {
     return response.data;
   },
 
-  async enrollStudent(studentId: string, courseId: string, courseName: string): Promise<Enrollment> {
-    const response = await api.post('/enrollments', { studentId, courseId, courseName });
+  async enrollStudent(studentId: string, courseId: string, _courseName?: string): Promise<Enrollment> {
+    const response = await api.post('/enrollments', { studentId, courseId });
+    return response.data;
+  },
+
+  async getStudentEnrollments(studentId: string): Promise<Enrollment[]> {
+    const response = await api.get(`/enrollments/student/${studentId}`);
     return response.data;
   },
 
@@ -172,18 +182,23 @@ export const enrollmentApi = {
 };
 
 export const sessionApi = {
-  async getSessions(params: { courseId?: string; facultyId?: string } = {}): Promise<Session[]> {
-    const response = await api.get('/sessions', { params });
-    return response.data;
-  },
-
   async createSession(payload: Partial<Session>): Promise<Session> {
     const response = await api.post('/sessions', payload);
     return response.data;
   },
 
+  async getSessions(params: { courseId?: string; facultyId?: string } = {}): Promise<Session[]> {
+    const response = await api.get('/sessions', { params });
+    return response.data;
+  },
+
+  async getSessionsForFaculty(facultyId: string): Promise<Session[]> {
+    const response = await api.get(`/sessions/faculty/${facultyId}`);
+    return response.data;
+  },
+
   async updateSession(id: string, payload: Partial<Session>): Promise<Session> {
-    const response = await api.patch(`/sessions/${id}`, payload);
+    const response = await api.put(`/sessions/${id}`, payload);
     return response.data;
   },
 
@@ -191,28 +206,114 @@ export const sessionApi = {
     await api.delete(`/sessions/${id}`);
   },
 
-  async closeSession(id: string): Promise<void> {
-    await api.post(`/sessions/${id}/close`);
+  async getStudentSessions(studentId: string): Promise<Session[]> {
+    const response = await api.get(`/sessions/student/${studentId}`);
+    return response.data;
   },
 
-  async getAttendance(sessionId: string): Promise<any[]> {
-    const response = await api.get(`/sessions/${sessionId}/attendance`);
+  async saveStudentCourses(studentId: string, courseIds: string[]): Promise<void> {
+    await api.post('/student/courses', { studentId, courseIds });
+  }
+};
+
+export const attendanceApi = {
+  async markAttendance(payload: {
+    studentId: string;
+    sessionId: string;
+    latitude: number;
+    longitude: number;
+  }): Promise<Attendance> {
+    const response = await api.post('/attendance', payload);
+    return response.data;
+  },
+
+  async getSessionAttendance(sessionId: string): Promise<{
+    sessionId: string;
+    presentCount: number;
+    absentCount: number;
+    records: Attendance[];
+  }> {
+    const response = await api.get(`/attendance/session/${sessionId}`);
+    return response.data;
+  },
+
+  async getFacultyAttendanceSummary(facultyId: string): Promise<
+    Array<{ sessionId: string; presentCount: number; absentCount: number }>
+  > {
+    const response = await api.get(`/attendance/faculty/${facultyId}`);
     return response.data;
   }
 };
 
-// Add response interceptor to handle 401 errors
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Clear authentication on 401
-      clearAuth();
-      // Optionally redirect to login
-      window.location.href = '/login';
-    }
-    return Promise.reject(error);
+export const feedbackApi = {
+  async submitFeedback(payload: {
+    studentId: string;
+    courseId: string;
+    rating: number;
+    message?: string;
+  }): Promise<Feedback> {
+    const response = await api.post('/feedback', payload);
+    return response.data;
+  },
+
+  async getAllFeedback(): Promise<Feedback[]> {
+    const response = await api.get('/feedback');
+    return response.data;
+  },
+
+  async getFeedbackByCourse(courseId: string): Promise<Feedback[]> {
+    const response = await api.get(`/feedback/course/${courseId}`);
+    return response.data;
+  },
+
+  async getFeedbackByFaculty(facultyId: string): Promise<{
+    courses: Array<{
+      courseId: string;
+      courseName: string;
+      courseCode: string;
+      averageRating: number;
+      feedbackCount: number;
+      feedback: Array<{
+        id: string;
+        rating: number;
+        message?: string;
+        createdAt?: string | null;
+      }>;
+    }>;
+    summary: {
+      totalFeedbacks: number;
+      overallAverage: number;
+    };
+  }> {
+    const response = await api.get(`/feedback/faculty/${facultyId}`);
+    return response.data;
+  },
+
+  async getFeedbackByStudent(studentId: string): Promise<Feedback[]> {
+    const response = await api.get(`/feedback/student/${studentId}`);
+    return response.data;
   }
-);
+};
+
+export const studentApi = {
+  async getStudentCourses(studentId: string): Promise<Course[]> {
+    const response = await api.get(`/student/courses/${studentId}`);
+    return response.data;
+  },
+
+  async getStudentSessions(studentId: string): Promise<Session[]> {
+    const response = await api.get(`/sessions/student/${studentId}`);
+    return response.data;
+  },
+
+  async getStudentDashboard(studentId: string): Promise<{
+    courses: Course[];
+    sessions: Session[];
+    feedbackCount: number;
+  }> {
+    const response = await api.get(`/student/dashboard/${studentId}`);
+    return response.data;
+  }
+};
 
 export default api;

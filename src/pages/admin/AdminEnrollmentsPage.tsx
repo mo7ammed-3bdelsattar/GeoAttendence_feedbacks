@@ -74,7 +74,7 @@ export function AdminEnrollmentsPage() {
         if (search.trim()) {
             const q = search.toLowerCase();
             list = list.filter(e =>
-                (e.courseName.toLowerCase()).includes(q) ||
+                ((e.courseName ?? '').toLowerCase()).includes(q) ||
                 (e.studentId.toLowerCase()).includes(q)
             );
         }
@@ -116,7 +116,7 @@ export function AdminEnrollmentsPage() {
 
     const openEdit = (e: Enrollment) => {
         setEditEnrollment(e);
-        setEditCourseName(e.courseName);
+        setEditCourseName(e.courseName ?? '');
     };
 
     const handleEdit = async () => {
@@ -263,7 +263,7 @@ export function AdminEnrollmentsPage() {
                                                     <p className="text-[10px] text-gray-400 ml-6">UID: {e.studentId.substring(0, 8)}...</p>
                                                 </td>
                                                 <td className="px-6 py-4 text-sm text-gray-500 font-medium">
-                                                    {new Date(e.enrolledAt).toLocaleDateString()}
+                                                    {new Date(e.createdAt ?? e.enrolledAt ?? Date.now()).toLocaleDateString()}
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
                                                     <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -330,7 +330,7 @@ export function AdminEnrollmentsPage() {
                                 <h4 className="text-lg font-bold text-gray-900 truncate">{e.courseName}</h4>
                                 <p className="text-xs text-gray-500 truncate mb-4">{getStudentName(e.studentId)}</p>
                                 <div className="flex items-center justify-between mt-auto">
-                                    <span className="text-[10px] text-gray-400 font-medium">Enrolled: {new Date(e.enrolledAt).toLocaleDateString()}</span>
+                                    <span className="text-[10px] text-gray-400 font-medium">Enrolled: {new Date(e.createdAt ?? e.enrolledAt ?? Date.now()).toLocaleDateString()}</span>
                                 </div>
                             </div>
                         ))}

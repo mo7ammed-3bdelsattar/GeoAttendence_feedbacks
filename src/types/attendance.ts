@@ -1,11 +1,11 @@
 export interface Attendance {
   id: string;
-  sessionId: string;
   studentId: string;
-  checkInTime: string;
+  sessionId: string;
   status: 'present' | 'absent' | 'late';
-  lat: number;
-  lng: number;
+  latitude: number;
+  longitude: number;
+  timestamp: string;
 }
 
 export type AttendanceStatus = 'present' | 'absent' | 'late';

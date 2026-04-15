@@ -8,7 +8,8 @@ import { ForgotPasswordPage } from '../pages/auth/ForgotPasswordPage.tsx';
 
 import { StudentHomePage } from '../pages/student/StudentHomePage.tsx';
 import { StudentProfilePage } from '../pages/student/StudentProfilePage.tsx';
-import { FacultySessionsPage } from '../pages/faculty/FacultySessionsPage.tsx';
+import { StudentFeedbackPage } from '../pages/student/StudentFeedbackPage.tsx';
+import { StudentSessionsPage } from '../pages/student/StudentSessionsPage.tsx';
 
 import { AdminOverviewPage } from '../pages/admin/AdminOverviewPage.tsx';
 import { AdminUsersPage } from '../pages/admin/AdminUsersPage.tsx';
@@ -17,19 +18,20 @@ import { AdminEnrollmentsPage } from '../pages/admin/AdminEnrollmentsPage.tsx';
 import { AdminDepartmentsPage } from '../pages/admin/AdminDepartmentsPage.tsx';
 import { AdminCoursesPage } from '../pages/admin/AdminCoursesPage.tsx';
 import { AdminClassroomsPage } from '../pages/admin/AdminClassroomsPage.tsx';
+import { AdminSessionsPage } from '../pages/admin/AdminSessionsPage.tsx';
+import { AdminFeedbackAuditPage } from '../pages/admin/AdminFeedbackAuditPage.tsx';
+import { FacultySessionsPage } from '../pages/faculty/FacultySessionsPage.tsx';
+import { FacultyFeedbackPage } from '../pages/faculty/FacultyFeedbackPage.tsx';
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: UserRole[] }) {
   const user = useAuthStore((s) => s.user);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const clearSession = useAuthStore((s) => s.clearSession);
+  const hasToken = !!getAccessToken();
 
-  if (!isAuthenticated || !user) {
+  if (!isAuthenticated || !user || !hasToken) {
     return <Navigate to="/login" replace />;
   }
-  if (!getAccessToken()) {
-    clearSession();
-    return <Navigate to="/login" replace />;
-  }
+
   if (!allowedRoles.includes(user.role)) {
     const base = user.role === 'student' ? '/student' : user.role === 'faculty' ? '/faculty' : '/admin';
     return <Navigate to={base} replace />;
@@ -62,10 +64,26 @@ export const router = createBrowserRouter([
     path: '/student/profile',
     element: <ProtectedRoute allowedRoles={['student']}><StudentProfilePage /></ProtectedRoute>,
   },
-  { path: '/faculty', element: <Navigate to="/faculty/sessions" replace /> },
+  {
+    path: '/student/feedback',
+    element: <ProtectedRoute allowedRoles={['student']}><StudentFeedbackPage /></ProtectedRoute>,
+  },
+  {
+    path: '/student/sessions',
+    element: <ProtectedRoute allowedRoles={['student']}><StudentSessionsPage /></ProtectedRoute>,
+  },
+
+  {
+    path: '/faculty',
+    element: <ProtectedRoute allowedRoles={['faculty']}><Navigate to="/faculty/sessions" replace /></ProtectedRoute>,
+  },
   {
     path: '/faculty/sessions',
     element: <ProtectedRoute allowedRoles={['faculty']}><FacultySessionsPage /></ProtectedRoute>,
+  },
+  {
+    path: '/faculty/ratings',
+    element: <ProtectedRoute allowedRoles={['faculty']}><FacultyFeedbackPage /></ProtectedRoute>,
   },
 
   {
@@ -83,6 +101,14 @@ export const router = createBrowserRouter([
   {
     path: '/admin/enrollments',
     element: <ProtectedRoute allowedRoles={['admin']}><AdminEnrollmentsPage /></ProtectedRoute>,
+  },
+  {
+    path: '/admin/sessions',
+    element: (
+      <ProtectedRoute allowedRoles={['admin']}>
+        <AdminSessionsPage />
+      </ProtectedRoute>
+    ),
   },
   {
     path: '/admin/departments',
@@ -105,6 +131,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowedRoles={['admin']}>
         <AdminClassroomsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/feedback',
+    element: (
+      <ProtectedRoute allowedRoles={['admin']}>
+        <AdminFeedbackAuditPage />
       </ProtectedRoute>
     ),
   },

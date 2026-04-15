@@ -1,17 +1,20 @@
 export interface Session {
   id: string;
   courseId: string;
-  courseName: string;
+  courseName?: string;
   classroomId: string;
   facultyId: string;
+  date: string;
   startTime: string;
   endTime: string;
-  topic: string;
-  status: 'active' | 'ended';
-  lat?: number;
-  lng?: number;
-  geofenceRadiusMeters?: number;
+  createdAt?: string;
+  topic?: string;
+  status?: 'scheduled' | 'active' | 'ended';
   classroomName?: string;
+  facultyName?: string;
+  courseCode?: string;
+  title?: string;
+  attended?: boolean;
 }
 
 export interface CheckIn {

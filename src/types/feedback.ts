@@ -1,19 +1,20 @@
 export interface Feedback {
   id: string;
-  sessionId: string;
-  userId: string;
+  studentId: string;
+  courseId: string;
   rating: number;
-  comment?: string;
-  submittedAt: string;
+  message?: string;
+  createdAt: string;
 }
 
 export interface FeedbackSubmission {
-  sessionId: string;
+  studentId: string;
+  courseId: string;
   rating: number;
-  comment?: string;
+  message?: string;
 }
 
 export interface FeedbackSummary {
-  rating: number;
-  count: number;
+  totalFeedbacks: number;
+  overallAverage: number;
 }
