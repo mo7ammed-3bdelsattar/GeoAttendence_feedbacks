@@ -144,4 +144,49 @@ export const adminApi = {
   },
 };
 
+export const studentApi = {
+  getStudentSessions: async (studentId: string) => {
+    try {
+      const response = await api.get(`/sessions/student/${studentId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Get student sessions error:', error);
+      throw error;
+    }
+  },
+  getStudentCourses: async (studentId: string) => {
+    try {
+      const response = await api.get(`/student/courses/${studentId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Get student courses error:', error);
+      throw error;
+    }
+  }
+};
+
+export const attendanceApi = {
+  markAttendance: async (data: { studentId: string; sessionId: string; latitude: number; longitude: number }) => {
+    try {
+      const response = await api.post('/attendance', data);
+      return response.data;
+    } catch (error) {
+      console.error('Mark attendance error:', error);
+      throw error;
+    }
+  }
+};
+
+export const feedbackApi = {
+  submitFeedback: async (data: { studentId: string; courseId: string; rating: number; message?: string }) => {
+    try {
+      const response = await api.post('/feedback', data);
+      return response.data;
+    } catch (error) {
+      console.error('Submit feedback error:', error);
+      throw error;
+    }
+  }
+};
+
 export default api;

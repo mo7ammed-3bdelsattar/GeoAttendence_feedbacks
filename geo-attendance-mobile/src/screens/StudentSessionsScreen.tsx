@@ -55,7 +55,15 @@ const StudentSessionsScreen: React.FC = () => {
       Alert.alert('Success', 'Attendance marked successfully!');
       fetchSessions(); // Refresh visual status
     } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.error || 'Failed to mark attendance. Check your location.');
+      const respData = error.response?.data;
+      if (respData?.distanceMeters !== undefined && respData?.allowedRadiusMeters !== undefined) {
+        Alert.alert(
+          'Attendance Failed',
+          `You are ${respData.distanceMeters} meters away from the classroom. You must be within ${respData.allowedRadiusMeters} meters to register.`
+        );
+      } else {
+        Alert.alert('Error', respData?.error || 'Failed to mark attendance. Check your location.');
+      }
     } finally {
       setMarkingId(null);
     }
