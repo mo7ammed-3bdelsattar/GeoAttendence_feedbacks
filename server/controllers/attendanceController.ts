@@ -126,7 +126,10 @@ export const getAttendanceBySession = async (req: Request, res: Response) => {
     }
 
     const session = sessionDoc.data() as { courseId?: string };
-    const presentRows = attendanceSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Array<{ studentId: string }>;
+    const presentRows = attendanceSnap.docs.map((doc) => ({
+      id: doc.id,
+      ...(doc.data() as { studentId: string }),
+    }));
     const presentCount = presentRows.length;
 
     let enrolledCount = 0;

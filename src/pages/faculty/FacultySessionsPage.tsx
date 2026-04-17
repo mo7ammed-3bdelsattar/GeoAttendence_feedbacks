@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Calendar, Clock, Edit2, MapPin, Plus, Search, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AppShell } from '../../components/layout/AppShell.tsx';
@@ -8,13 +9,36 @@ import { adminApi, attendanceApi, sessionApi } from '../../services/api.ts';
 import { useAuthStore } from '../../stores/authStore.ts';
 import type { Session } from '../../types/index.ts';
 
+function parseSessionDateTime(session: Session, key: 'startTime' | 'endTime') {
+  const rawValue = session[key];
+  if (!rawValue) return null;
+
+  const parsed = new Date(rawValue);
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed;
+  }
+
+  if (session.date && /^\d{1,2}:\d{2}/.test(rawValue)) {
+    const combined = new Date(`${session.date}T${rawValue}`);
+    if (!Number.isNaN(combined.getTime())) {
+      return combined;
+    }
+  }
+
+  return null;
+}
+
 export function FacultySessionsPage() {
+  const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [dateFilter, setDateFilter] = useState('');
   const [attendanceSummary, setAttendanceSummary] = useState<Record<string, { presentCount: number; absentCount: number }>>({});
+  const [sessionQrs, setSessionQrs] = useState<Record<string, { token: string; expiresAt: string }>>({});
+  const [activeSessionOp, setActiveSessionOp] = useState<string | null>(null);
+  const [liveQrSessionId, setLiveQrSessionId] = useState<string | null>(null);
   
   // Form states for creating/editing
   const [showForm, setShowForm] = useState(false);
@@ -74,18 +98,75 @@ export function FacultySessionsPage() {
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, [user?.id]);
+  const handleStartSession = async (sessionId: string) => {
+    setActiveSessionOp(sessionId);
+    try {
+      await sessionApi.startSessionById(sessionId);
+      setSessions((prev) => prev.map((session) =>
+        session.id === sessionId ? { ...session, status: 'active', startedAt: new Date().toISOString(), checkInDeadline: new Date(Date.now() + 15 * 60 * 1000).toISOString() } : session
+      ));
+      toast.success('Session started successfully. QR code is now available.');
+      await handleFetchQr(sessionId);
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error?.response?.data?.message || 'Unable to start session.');
+    } finally {
+      setActiveSessionOp(null);
+    }
+  };
 
-  const today = new Date().toISOString().slice(0, 10);
+  const handleEndSession = async (sessionId: string) => {
+    setActiveSessionOp(sessionId);
+    try {
+      await sessionApi.endSession(sessionId);
+      setSessions((prev) => prev.map((session) =>
+        session.id === sessionId ? { ...session, status: 'ended' } : session
+      ));
+      setSessionQrs((prev) => {
+        const copy = { ...prev };
+        delete copy[sessionId];
+        return copy;
+      });
+      if (liveQrSessionId === sessionId) {
+        setLiveQrSessionId(null);
+      }
+      toast.success('Session ended and attendance summary generated.');
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error?.response?.data?.message || 'Unable to end session.');
+    } finally {
+      setActiveSessionOp(null);
+    }
+  };
+
+  const handleFetchQr = async (sessionId: string) => {
+    setActiveSessionOp(sessionId);
+    try {
+      const qr = await sessionApi.getSessionQr(sessionId);
+      setSessionQrs((prev) => ({ ...prev, [sessionId]: qr }));
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error?.response?.data?.message || 'Unable to load session QR.');
+    } finally {
+      setActiveSessionOp(null);
+    }
+  };
+
+  useEffect(() => {
+    if (!liveQrSessionId) return;
+    const timer = setInterval(() => {
+      handleFetchQr(liveQrSessionId);
+    }, 30000);
+    return () => clearInterval(timer);
+  }, [liveQrSessionId]);
 
   const filteredSessions = useMemo(() => {
     return sessions
       .filter((session) => {
         if (!dateFilter) return true;
-        const sessionDate = new Date(session.startTime).toISOString().slice(0, 10);
-        return sessionDate === dateFilter;
+        const startDate = parseSessionDateTime(session, 'startTime');
+        if (!startDate) return false;
+        return startDate.toISOString().slice(0, 10) === dateFilter;
       })
       .filter((session) => {
         if (!search.trim()) return true;
@@ -96,8 +177,13 @@ export function FacultySessionsPage() {
           (session.classroomName ?? '').toLowerCase().includes(query)
         );
       })
-      .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+      .sort((a, b) => {
+        const aDate = parseSessionDateTime(a, 'startTime');
+        const bDate = parseSessionDateTime(b, 'startTime');
+        return (bDate?.getTime() ?? 0) - (aDate?.getTime() ?? 0);
+      });
   }, [sessions, dateFilter, search]);
+  const today = new Date().toISOString().slice(0, 10);
 
   const handleDelete = async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this session?')) return;
@@ -111,11 +197,14 @@ export function FacultySessionsPage() {
   };
 
   const handleEdit = (session: Session) => {
+    const startDate = parseSessionDateTime(session, 'startTime');
+    const endDate = parseSessionDateTime(session, 'endTime');
+
     setSelectedSession(session);
     setFormData({
       topic: session.topic || '',
-      startTime: new Date(session.startTime).toISOString().slice(0, 16),
-      endTime: new Date(session.endTime).toISOString().slice(0, 16),
+      startTime: startDate ? startDate.toISOString().slice(0, 16) : '',
+      endTime: endDate ? endDate.toISOString().slice(0, 16) : '',
       classroomId: session.classroomId || '',
       courseId: session.courseId || ''
     });
@@ -146,6 +235,7 @@ export function FacultySessionsPage() {
               type="date"
               value={dateFilter}
               onChange={(e) => setDateFilter(e.target.value)}
+              aria-label="Filter sessions by date"
               className="px-3 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-primary/10"
             />
           </div>
@@ -160,7 +250,9 @@ export function FacultySessionsPage() {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {filteredSessions.map((session) => {
-              const sessionDate = new Date(session.startTime).toISOString().slice(0, 10);
+              const startDate = parseSessionDateTime(session, 'startTime');
+              const endDate = parseSessionDateTime(session, 'endTime');
+              const sessionDate = startDate ? startDate.toISOString().slice(0, 10) : '';
               const isToday = sessionDate === today;
               
               return (
@@ -183,7 +275,11 @@ export function FacultySessionsPage() {
                         Today
                       </span>
                     )}
-                    <button onClick={() => handleDelete(session.id)} className="p-1 text-gray-400 hover:text-red-500">
+                    <button
+                      onClick={() => handleDelete(session.id)}
+                      aria-label="Delete session"
+                      className="p-1 text-gray-400 hover:text-red-500"
+                    >
                       <Trash2 className="h-4 w-4" />
                     </button>
                     </div>
@@ -192,13 +288,13 @@ export function FacultySessionsPage() {
                   <div className="space-y-2 text-sm text-gray-600">
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-primary" />
-                      <span>{new Date(session.startTime).toLocaleDateString()}</span>
+                      <span>{startDate ? startDate.toLocaleDateString() : 'Unknown date'}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Clock className="h-4 w-4 text-primary" />
                       <span>
-                        {new Date(session.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
-                        {new Date(session.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {startDate ? startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Unknown'} - 
+                        {endDate ? endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Unknown'}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -215,9 +311,82 @@ export function FacultySessionsPage() {
                       <span className={`px-2 py-0.5 rounded-full font-bold uppercase text-[9px] ${
                         session.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
                       }`}>
-                        {session.status}
+                        {session.status || 'scheduled'}
                       </span>
                     </div>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {session.status === 'active' ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLiveQrSessionId(session.id);
+                              handleFetchQr(session.id);
+                            }}
+                            disabled={activeSessionOp === session.id}
+                            className="rounded-xl border border-primary bg-primary/5 px-3 py-2 text-sm font-semibold text-primary hover:bg-primary/10 disabled:opacity-50"
+                          >
+                            {activeSessionOp === session.id ? 'Loading QR…' : 'Show QR'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleEndSession(session.id)}
+                            disabled={activeSessionOp === session.id}
+                            className="rounded-xl bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
+                          >
+                            End Session
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/faculty/attendance-summary/${session.id}`)}
+                            className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100"
+                          >
+                            Attendance List
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleStartSession(session.id)}
+                            disabled={activeSessionOp === session.id}
+                            className="rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-50"
+                          >
+                            {activeSessionOp === session.id ? 'Starting…' : 'Start Session'}
+                          </button>
+                          {session.status === 'ended' ? (
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/faculty/attendance-summary/${session.id}`)}
+                              className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100"
+                            >
+                              Attendance List
+                            </button>
+                          ) : null}
+                        </>
+                      )}
+                    </div>
+
+                    {sessionQrs[session.id] && session.status === 'active' ? (
+                      <div className="mt-4 rounded-2xl border border-primary/20 bg-primary/5 p-4 text-sm text-gray-700">
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <span className="font-semibold text-gray-900">Live QR for students</span>
+                          <span className="text-xs text-gray-500">Expires {new Date(sessionQrs[session.id].expiresAt).toLocaleTimeString()}</span>
+                        </div>
+                        <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center">
+                          <img
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(sessionQrs[session.id].token)}`}
+                            alt="Session QR code"
+                            className="h-40 w-40 rounded-2xl bg-white p-2"
+                          />
+                          <div className="max-w-[260px] break-all rounded-2xl border border-gray-200 bg-white p-3 text-xs text-gray-700">
+                            <p className="font-semibold text-gray-900 mb-1">QR token</p>
+                            <p className="leading-5">{sessionQrs[session.id].token}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               );

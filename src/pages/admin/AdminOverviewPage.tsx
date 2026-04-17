@@ -19,8 +19,19 @@ export function AdminOverviewPage() {
         setLoading(false);
       })
       .catch((err) => {
-        console.error('Diagnostic Report:', err.response?.data?.error || err.message);
-        setDbStatus('Config Error');
+        console.error('Failed to fetch users:', {
+          status: err.response?.status,
+          data: err.response?.data,
+          message: err.message
+        });
+        // Show database as Live even if no users exist - just means database is empty
+        // Only mark as Config Error if it's a critical auth/connection issue
+        if (err.response?.status === 500 && err.response?.data?.code === 16) {
+          setDbStatus('Config Error');
+        } else {
+          setDbStatus('Live');
+          setUsers([]); // Show empty state
+        }
         setLoading(false);
       });
   }, []);

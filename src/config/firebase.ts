@@ -1,3 +1,8 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Firebase Configuration
+// Replace every value below with your actual project credentials from:
+//   Firebase Console → Project Settings → Your apps → SDK setup and configuration
+// ─────────────────────────────────────────────────────────────────────────────
 
 import { initializeApp } from 'firebase/app';
 import { getAuth }        from 'firebase/auth';
@@ -19,9 +24,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 // ── Exports ────────────────────────────────────────────────────────────────
-export const auth    = getAuth(app);       
-export const db      = getFirestore(app); 
-export const storage = getStorage(app);    
+export const auth    = getAuth(app);       // Firebase Authentication
+export const db      = getFirestore(app);  // Cloud Firestore
+export const storage = getStorage(app);    // Firebase Storage
 
 export default app;
-

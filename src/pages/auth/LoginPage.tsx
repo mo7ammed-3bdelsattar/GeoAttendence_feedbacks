@@ -39,8 +39,9 @@ export function LoginPage() {
       toast.success('Access Granted. Welcome back!', { id: loadingToast });
       const base = values.role === 'student' ? '/student' : values.role === 'faculty' ? '/faculty' : '/admin';
       navigate(base, { replace: true });
-    } catch {
-      toast.error(error ?? 'Authentication failed. Please check your credentials.', { id: loadingToast });
+    } catch (e: any) {
+      const message = e?.message || error || 'Authentication failed. Please check your credentials.';
+      toast.error(message, { id: loadingToast });
     }
   };
 
@@ -100,6 +101,14 @@ export function LoginPage() {
                  <h3 className="text-2xl font-bold text-gray-900 tracking-tight">Portal Gateway</h3>
                  <p className="text-sm text-gray-400 mt-2 font-medium">Verify your identity to proceed</p>
               </div>
+
+              {error ? (
+                <div className="mb-6 rounded-3xl bg-red-50 border border-red-200 text-red-700 px-5 py-4 text-sm font-medium">
+                  {error === 'Network Error'
+                    ? 'Network Error. Please check your connection and try again.'
+                    : error}
+                </div>
+              ) : null}
 
               <form noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                 <FormInput

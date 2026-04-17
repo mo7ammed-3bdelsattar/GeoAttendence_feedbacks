@@ -10,6 +10,7 @@ import { StudentHomePage } from '../pages/student/StudentHomePage.tsx';
 import { StudentProfilePage } from '../pages/student/StudentProfilePage.tsx';
 import { StudentFeedbackPage } from '../pages/student/StudentFeedbackPage.tsx';
 import { StudentSessionsPage } from '../pages/student/StudentSessionsPage.tsx';
+import { AttendanceSummaryPage } from '../pages/faculty/AttendanceSummaryPage.tsx';
 
 import { AdminOverviewPage } from '../pages/admin/AdminOverviewPage.tsx';
 import { AdminUsersPage } from '../pages/admin/AdminUsersPage.tsx';
@@ -22,8 +23,9 @@ import { AdminSessionsPage } from '../pages/admin/AdminSessionsPage.tsx';
 import { AdminFeedbackAuditPage } from '../pages/admin/AdminFeedbackAuditPage.tsx';
 import { FacultySessionsPage } from '../pages/faculty/FacultySessionsPage.tsx';
 import { FacultyFeedbackPage } from '../pages/faculty/FacultyFeedbackPage.tsx';
+import { RoleGuard } from '../components/RoleGuard.tsx';
 
-function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: UserRole[] }) {
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const hasToken = !!getAccessToken();
@@ -32,10 +34,6 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
     return <Navigate to="/login" replace />;
   }
 
-  if (!allowedRoles.includes(user.role)) {
-    const base = user.role === 'student' ? '/student' : user.role === 'faculty' ? '/faculty' : '/admin';
-    return <Navigate to={base} replace />;
-  }
   return <>{children}</>;
 }
 
@@ -58,32 +56,84 @@ export const router = createBrowserRouter([
 
   {
     path: '/student',
-    element: <ProtectedRoute allowedRoles={['student']}><StudentHomePage /></ProtectedRoute>,
+    element: (
+      <ProtectedRoute>
+        <RoleGuard requiredRole="student" screen="Student Home">
+          <StudentHomePage />
+        </RoleGuard>
+      </ProtectedRoute>
+    ),
   },
   {
     path: '/student/profile',
-    element: <ProtectedRoute allowedRoles={['student']}><StudentProfilePage /></ProtectedRoute>,
+    element: (
+      <ProtectedRoute>
+        <RoleGuard requiredRole="student" screen="Student Profile">
+          <StudentProfilePage />
+        </RoleGuard>
+      </ProtectedRoute>
+    ),
   },
   {
     path: '/student/feedback',
-    element: <ProtectedRoute allowedRoles={['student']}><StudentFeedbackPage /></ProtectedRoute>,
+    element: (
+      <ProtectedRoute>
+        <RoleGuard requiredRole="student" screen="Student Feedback">
+          <StudentFeedbackPage />
+        </RoleGuard>
+      </ProtectedRoute>
+    ),
   },
   {
     path: '/student/sessions',
-    element: <ProtectedRoute allowedRoles={['student']}><StudentSessionsPage /></ProtectedRoute>,
+    element: (
+      <ProtectedRoute>
+        <RoleGuard requiredRole="student" screen="Student Sessions">
+          <StudentSessionsPage />
+        </RoleGuard>
+      </ProtectedRoute>
+    ),
   },
 
   {
     path: '/faculty',
-    element: <ProtectedRoute allowedRoles={['faculty']}><Navigate to="/faculty/sessions" replace /></ProtectedRoute>,
+    element: (
+      <ProtectedRoute>
+        <RoleGuard requiredRole="faculty" screen="Faculty Home">
+          <Navigate to="/faculty/sessions" replace />
+        </RoleGuard>
+      </ProtectedRoute>
+    ),
   },
   {
     path: '/faculty/sessions',
-    element: <ProtectedRoute allowedRoles={['faculty']}><FacultySessionsPage /></ProtectedRoute>,
+    element: (
+      <ProtectedRoute>
+        <RoleGuard requiredRole="faculty" screen="Faculty Sessions">
+          <FacultySessionsPage />
+        </RoleGuard>
+      </ProtectedRoute>
+    ),
   },
   {
     path: '/faculty/ratings',
-    element: <ProtectedRoute allowedRoles={['faculty']}><FacultyFeedbackPage /></ProtectedRoute>,
+    element: (
+      <ProtectedRoute>
+        <RoleGuard requiredRole="faculty" screen="Faculty Feedback">
+          <FacultyFeedbackPage />
+        </RoleGuard>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/faculty/attendance-summary/:sessionId',
+    element: (
+      <ProtectedRoute>
+        <RoleGuard requiredRole="faculty" screen="Faculty Attendance Summary">
+          <AttendanceSummaryPage />
+        </RoleGuard>
+      </ProtectedRoute>
+    ),
   },
 
   {

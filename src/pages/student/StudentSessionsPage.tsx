@@ -11,7 +11,8 @@ export function StudentSessionsPage() {
   const user = useAuthStore((s) => s.user);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
-  const [markingId, setMarkingId] = useState<string | null>(null);
+  const [activeSessionOp, setActiveSessionOp] = useState<string | null>(null);
+  const [checkedInSessions, setCheckedInSessions] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const fetchSessions = async () => {
@@ -29,13 +30,80 @@ export function StudentSessionsPage() {
     fetchSessions();
   }, [user?.id]);
 
-  const now = new Date();
-  const canMark = (session: Session) => {
-    if (session.attended) return false;
-    if (!session.date || !session.startTime || !session.endTime) return false;
-    const start = new Date(`${session.date}T${session.startTime}:00`);
-    const end = new Date(`${session.date}T${session.endTime}:00`);
-    return now >= start && now <= end;
+  const handleStudentCheckIn = async (session: Session) => {
+    if (!user?.id) return;
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by this browser.');
+      return;
+    }
+
+    const qrToken = window.prompt('Paste the active session QR token from the instructor.');
+    if (!qrToken) return;
+
+    setActiveSessionOp(session.id);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          await attendanceApi.markAttendanceSmart({
+            studentId: user.id,
+            sessionId: session.id,
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            qrToken,
+          });
+          setCheckedInSessions((prev) => ({ ...prev, [session.id]: true }));
+          setSessions((prev) => prev.map((row) => (row.id === session.id ? { ...row, attended: true } : row)));
+          toast.success('Checked in successfully. You may check out later.');
+        } catch (error: any) {
+          toast.error(error?.response?.data?.message || 'Unable to check in.');
+        } finally {
+          setActiveSessionOp(null);
+        }
+      },
+      (err) => {
+        console.error(err);
+        setActiveSessionOp(null);
+        toast.error('Unable to retrieve your location.');
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  const handleStudentCheckout = async (session: Session) => {
+    if (!user?.id) return;
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by this browser.');
+      return;
+    }
+
+    const qrToken = window.prompt('Paste the active session QR token again to check out.');
+    if (!qrToken) return;
+
+    setActiveSessionOp(session.id);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          await attendanceApi.studentCheckout({
+            qrToken,
+            gpsCoords: {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+            },
+          });
+          setCheckedInSessions((prev) => ({ ...prev, [session.id]: false }));
+          toast.success('Checked out successfully.');
+        } catch (error: any) {
+          toast.error(error?.response?.data?.message || 'Unable to check out.');
+        } finally {
+          setActiveSessionOp(null);
+        }
+      },
+      () => {
+        setActiveSessionOp(null);
+        toast.error('Unable to retrieve your location.');
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   };
 
   const sortedSessions = useMemo(
@@ -43,50 +111,12 @@ export function StudentSessionsPage() {
     [sessions]
   );
 
-  const handleMarkAttendance = async (session: Session) => {
-    if (!user?.id) return;
-    if (!canMark(session)) {
-      toast.error(session.attended ? 'Already attended' : 'Session not active');
-      return;
-    }
-
-    if (!navigator.geolocation) {
-      toast.error('Geolocation is not supported by this browser.');
-      return;
-    }
-
-    setMarkingId(session.id);
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          await attendanceApi.markAttendance({
-            studentId: user.id,
-            sessionId: session.id,
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
-          });
-          toast.success('Attendance successful ✅');
-          setSessions((prev) => prev.map((row) => (row.id === session.id ? { ...row, attended: true } : row)));
-        } catch (error: any) {
-          toast.error(error?.response?.data?.error || 'Failed to mark attendance');
-        } finally {
-          setMarkingId(null);
-        }
-      },
-      () => {
-        setMarkingId(null);
-        toast.error('Unable to get your location.');
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  };
-
   return (
     <AppShell title="Personal Timetable">
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">My Sessions</h1>
-          <p className="text-sm text-gray-500 mt-1">Mark attendance only when you are physically near the classroom.</p>
+          <p className="text-sm text-gray-500 mt-1">Check in and check out with the instructor's live QR code when sessions are active.</p>
         </div>
 
         {loading ? (
@@ -121,15 +151,40 @@ export function StudentSessionsPage() {
                   <div className="flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" /> {session.classroomName}</div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => handleMarkAttendance(session)}
-                  disabled={!canMark(session) || markingId === session.id}
-                  className="mt-4 w-full h-11 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
-                >
-                  <Navigation className="h-4 w-4" />
-                  {markingId === session.id ? 'Checking location...' : session.attended ? 'Already attended' : 'Mark Attendance'}
-                </button>
+                {session.status === 'active' ? (
+                  <div className="mt-4 grid gap-3">
+                    {!session.attended && !checkedInSessions[session.id] ? (
+                      <button
+                        type="button"
+                        onClick={() => handleStudentCheckIn(session)}
+                        disabled={activeSessionOp === session.id}
+                        className="w-full h-11 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
+                      >
+                        <Navigation className="h-4 w-4" />
+                        {activeSessionOp === session.id ? 'Checking in…' : 'Scan QR to Check In'}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleStudentCheckout(session)}
+                        disabled={activeSessionOp === session.id}
+                        className="w-full h-11 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
+                      >
+                        <Navigation className="h-4 w-4" />
+                        {activeSessionOp === session.id ? 'Checking out…' : 'Scan QR to Check Out'}
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    className="mt-4 w-full h-11 rounded-xl bg-gray-200 text-gray-500 text-sm font-semibold inline-flex items-center justify-center gap-2"
+                  >
+                    <Navigation className="h-4 w-4" />
+                    Session not started yet
+                  </button>
+                )}
               </div>
             ))}
           </div>

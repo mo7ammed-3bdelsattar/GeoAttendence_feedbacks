@@ -19,7 +19,15 @@ const api: AxiosInstance = axios.create({
   },
 });
 
-// Add request interceptor to attach auth token
+function getApiMessage(error: any, fallback: string): string {
+  const code = error?.response?.data?.error;
+  const message = error?.response?.data?.message || error?.response?.data?.error;
+  if (code === 'role_mismatch' || message === 'Role mismatch.') {
+    return 'The selected role does not match your account. Please choose the correct role.';
+  }
+  return message || fallback;
+}
+
 api.interceptors.request.use(
   (config) => {
     const token = getAccessToken();
@@ -47,23 +55,22 @@ export const authApi = {
         role: userData.role
       };
     } catch (error: any) {
-      // Fallback for mock users or pure backend auth if Firebase Auth fails
-      // or we can remove the fallback if Firebase is strict.
-      // We'll just pass it through so the backend can still try mock auth if needed.
-      const response = await api.post('/auth/login', { email, password, role });
-      const userData = response.data;
-      
-      return {
-        id: userData.id,
-        name: userData.name,
-        email: userData.email,
-        role: userData.role
-      };
+      try {
+        const response = await api.post('/auth/login', { email, password, role });
+        const userData = response.data;
+        return {
+          id: userData.id,
+          name: userData.name,
+          email: userData.email,
+          role: userData.role
+        };
+      } catch (fallbackError: any) {
+        throw new Error(getApiMessage(fallbackError, getApiMessage(error, 'Authentication failed.')));
+      }
     }
   },
 
   async logout(): Promise<void> {
-    // Mock logout
   },
 
   async resetPassword(email: string): Promise<void> {
@@ -198,6 +205,31 @@ export const sessionApi = {
     return response.data;
   },
 
+  async startSession(courseId: string, classroomId: string): Promise<{ sessionId: string }> {
+    const response = await api.post('/sessions/start', { courseId, roomId: classroomId });
+    return response.data;
+  },
+
+  async startSessionById(sessionId: string): Promise<{ sessionId: string }> {
+    const response = await api.post('/sessions/start', { sessionId });
+    return response.data;
+  },
+
+  async endSession(sessionId: string): Promise<{ success: boolean }> {
+    const response = await api.post('/sessions/end', { sessionId });
+    return response.data;
+  },
+
+  async getSessionQr(sessionId: string): Promise<{ token: string; expiresAt: string }> {
+    const response = await api.get(`/sessions/${sessionId}/qr`);
+    return response.data;
+  },
+
+  async getSessionSummary(sessionId: string): Promise<any> {
+    const response = await api.get(`/sessions/${sessionId}/summary`);
+    return response.data;
+  },
+
   async updateSession(id: string, payload: Partial<Session>): Promise<Session> {
     const response = await api.put(`/sessions/${id}`, payload);
     return response.data;
@@ -226,6 +258,40 @@ export const attendanceApi = {
   }): Promise<Attendance> {
     const response = await api.post('/attendance', payload);
     return response.data;
+  },
+
+  async studentCheckin(payload: {
+    qrToken: string;
+    gpsCoords: { lat: number; lng: number };
+  }): Promise<any> {
+    const response = await api.post('/sessions/checkin', payload);
+    return response.data;
+  },
+
+  async studentCheckout(payload: { qrToken: string; gpsCoords: { lat: number; lng: number } }): Promise<any> {
+    const response = await api.post('/sessions/checkout', payload);
+    return response.data;
+  },
+
+  async markAttendanceSmart(payload: {
+    studentId: string;
+    sessionId: string;
+    latitude: number;
+    longitude: number;
+    qrToken?: string;
+  }): Promise<any> {
+    if (payload.qrToken) {
+      return attendanceApi.studentCheckin({
+        qrToken: payload.qrToken,
+        gpsCoords: { lat: payload.latitude, lng: payload.longitude },
+      });
+    }
+    return attendanceApi.markAttendance({
+      studentId: payload.studentId,
+      sessionId: payload.sessionId,
+      latitude: payload.latitude,
+      longitude: payload.longitude,
+    });
   },
 
   async getSessionAttendance(sessionId: string): Promise<{
