@@ -1,9 +1,31 @@
 import { Request, Response } from 'express';
 import admin, { db, auth as adminAuth } from '../config/firebase-admin';
 
+const ALLOWED_ROLES = ['student', 'faculty', 'admin'] as const;
+
+type UserRole = typeof ALLOWED_ROLES[number];
+
+const normalizeRole = (role?: string): UserRole => {
+  if (!role) return 'student';
+  const normalized = role.toLowerCase();
+  if (normalized === 'instructor') return 'faculty';
+  if (normalized === 'admin') return 'admin';
+  return 'student';
+};
+
+const validateRole = (role?: string): UserRole => {
+  const normalized = normalizeRole(role);
+  if (!ALLOWED_ROLES.includes(normalized)) {
+    throw new Error(`Invalid role: ${role}`);
+  }
+  return normalized;
+};
+
 export const getUsers = async (req: Request, res: Response) => {
   try {
     const { role } = req.query;
+    console.log('[USER CONTROLLER] Fetching users from Firestore...', { role });
+    
     const usersCol = db.collection('users');
     let q: admin.firestore.Query = usersCol;
 
@@ -12,6 +34,8 @@ export const getUsers = async (req: Request, res: Response) => {
     }
 
     const snapshot = await q.get();
+    console.log('[USER CONTROLLER] Firestore query successful:', { docsCount: snapshot.docs.length });
+    
     const users = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
@@ -19,7 +43,16 @@ export const getUsers = async (req: Request, res: Response) => {
 
     res.json(users);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('[USER CONTROLLER] Firestore query failed:', {
+      message: error.message,
+      code: error.code,
+      details: error.details || 'No additional details'
+    });
+    res.status(500).json({ 
+      error: error.message,
+      code: error.code,
+      details: 'Check server logs for more information'
+    });
   }
 };
 
@@ -27,6 +60,12 @@ export const createUser = async (req: Request, res: Response) => {
   try {
     const payload = req.body;
     const { email, password, name, role } = payload;
+
+    if (!email || !password || !name) {
+      return res.status(400).json({ error: 'email, password, and name are required' });
+    }
+
+    const validatedRole = validateRole(role);
 
     const userAuth = await adminAuth.createUser({
       email,
@@ -38,7 +77,7 @@ export const createUser = async (req: Request, res: Response) => {
       id: userAuth.uid,
       name,
       email,
-      role: role ?? 'student',
+      role: validatedRole,
     };
 
     await db.collection('users').doc(userAuth.uid).set(newUser);
@@ -52,6 +91,10 @@ export const updateUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const payload = req.body;
+
+    if (payload.role) {
+      payload.role = validateRole(payload.role);
+    }
 
     const userId = String(id);
     await db.collection('users').doc(userId).update(payload);

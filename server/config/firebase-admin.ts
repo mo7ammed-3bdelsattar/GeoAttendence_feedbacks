@@ -1,23 +1,26 @@
 import admin from 'firebase-admin';
-import dotenv from 'dotenv';
-import path from 'path';
-import fs from 'fs';
+import { config } from 'dotenv';
+import { resolve, dirname } from 'path';
+import { existsSync } from 'fs';
+import { fileURLToPath } from 'url';
 
-dotenv.config();
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+config();
 
 function getCredential() {
   const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './service-account.json';
   
   // Try multiple possible locations for the service account file
   const possiblePaths = [
-    path.resolve(process.cwd(), serviceAccountPath),
-    path.resolve(process.cwd(), 'src/assets/service-account.json'),
-    path.resolve(__dirname, '../../src/assets/service-account.json'),
-    path.resolve(__dirname, '../service-account.json')
+    resolve(process.cwd(), serviceAccountPath),
+    resolve(process.cwd(), 'src/assets/service-account.json'),
+    resolve(__dirname, '../../src/assets/service-account.json'),
+    resolve(__dirname, '../service-account.json')
   ];
 
   for (const absPath of possiblePaths) {
-    if (fs.existsSync(absPath)) {
+    if (existsSync(absPath)) {
       console.log(`[FIREBASE-ADMIN] Using service account file at: ${absPath}`);
       return admin.credential.cert(absPath);
     }
@@ -56,5 +59,6 @@ try {
 export const db = admin.firestore();
 export const auth = admin.auth();
 export const storage = admin.storage();
+export { admin };
 
 export default admin;

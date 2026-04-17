@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl, TouchableOpacity, Alert, Modal } from 'react-native';
+import { BarCodeScanner } from 'expo-barcode-scanner';
 import * as Location from 'expo-location';
 import Colors from '../theme/colors';
 import Typography from '../theme/typography';
@@ -13,6 +14,11 @@ const StudentSessionsScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [markingId, setMarkingId] = useState<string | null>(null);
+  const [scannerVisible, setScannerVisible] = useState(false);
+  const [scannerMode, setScannerMode] = useState<'checkin' | 'checkout' | null>(null);
+  const [scannerSessionId, setScannerSessionId] = useState<string | null>(null);
+  const [cameraPermission, setCameraPermission] = useState<boolean | null>(null);
+  const [checkedInSessions, setCheckedInSessions] = useState<Record<string, boolean>>({});
 
   const fetchSessions = async () => {
     if (!user) return;
@@ -30,6 +36,18 @@ const StudentSessionsScreen: React.FC = () => {
   useEffect(() => {
     fetchSessions();
   }, [user]);
+
+  useEffect(() => {
+    if (!scannerVisible) return;
+
+    (async () => {
+      const { status } = await BarCodeScanner.requestPermissionsAsync();
+      setCameraPermission(status === 'granted');
+      if (status !== 'granted') {
+        Alert.alert('Camera permission required', 'Please allow camera access to scan QR codes.');
+      }
+    })();
+  }, [scannerVisible]);
 
   const handleMarkAttendance = async (sessionId: string) => {
     if (!user) return;
@@ -69,6 +87,84 @@ const StudentSessionsScreen: React.FC = () => {
     }
   };
 
+  const openScanner = (sessionId: string, mode: 'checkin' | 'checkout') => {
+    setScannerSessionId(sessionId);
+    setScannerMode(mode);
+    setScannerVisible(true);
+  };
+
+  const closeScanner = () => {
+    setScannerVisible(false);
+    setScannerMode(null);
+    setScannerSessionId(null);
+  };
+
+  const handleBarCodeScanned = async ({ data }: { data: string }) => {
+    if (!scannerMode || !scannerSessionId || !user) {
+      closeScanner();
+      return;
+    }
+
+    if (!cameraPermission) {
+      Alert.alert('Camera permission denied', 'Cannot scan without camera permission.');
+      closeScanner();
+      return;
+    }
+
+    setScannerVisible(false);
+    const sessionId = scannerSessionId;
+    const qrToken = data;
+
+    if (scannerMode === 'checkin') {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission Denied', 'Permission to access location was denied');
+          return;
+        }
+
+        const location = await Location.getCurrentPositionAsync({});
+
+        await attendanceApi.studentCheckin({
+          qrToken,
+          gpsCoords: {
+            lat: location.coords.latitude,
+            lng: location.coords.longitude,
+          },
+        });
+
+        setCheckedInSessions((prev) => ({ ...prev, [sessionId]: true }));
+        setSessions((prev) => prev.map((session) =>
+          session.id === sessionId ? { ...session, isActive: true } : session
+        ));
+        Alert.alert('Checked in', 'You have checked in successfully.');
+      } catch (error: any) {
+        Alert.alert('Check-in failed', error.message || error.response?.data?.message || 'Unable to check in using the scanned QR.');
+      }
+    } else {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission Denied', 'Permission to access location was denied');
+          return;
+        }
+
+        const location = await Location.getCurrentPositionAsync({});
+        await attendanceApi.studentCheckout({
+          qrToken,
+          gpsCoords: {
+            lat: location.coords.latitude,
+            lng: location.coords.longitude,
+          },
+        });
+        setCheckedInSessions((prev) => ({ ...prev, [sessionId]: false }));
+        Alert.alert('Checked out', 'You have successfully checked out.');
+      } catch (error: any) {
+        Alert.alert('Check-out failed', error.message || error.response?.data?.message || 'Unable to check out using the scanned QR.');
+      }
+    }
+  };
+
   const renderItem = ({ item }: { item: Session }) => {
     const formattedDate = item.date ? new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No Date';
     return (
@@ -82,18 +178,30 @@ const StudentSessionsScreen: React.FC = () => {
         <Text style={styles.detailText}>📅 {formattedDate}</Text>
         <Text style={styles.detailText}>📍 {item.classroom?.name || 'No Location'}</Text>
         
-        {item.isActive && (
-          <TouchableOpacity 
-            style={[styles.button, markingId === item.id && styles.buttonDisabled]} 
-            onPress={() => handleMarkAttendance(item.id)}
-            disabled={markingId === item.id}
-          >
-            {markingId === item.id ? (
-              <ActivityIndicator color="#fff" size="small" />
+        {item.isActive ? (
+          <View style={{ marginTop: 16 }}>
+            {!checkedInSessions[item.id] ? (
+              <TouchableOpacity
+                style={[styles.button, scannerSessionId === item.id && styles.buttonDisabled]}
+                onPress={() => openScanner(item.id, 'checkin')}
+                disabled={scannerSessionId === item.id}
+              >
+                <Text style={styles.buttonText}>Scan QR to Check In</Text>
+              </TouchableOpacity>
             ) : (
-              <Text style={styles.buttonText}>Mark Attendance</Text>
+              <TouchableOpacity
+                style={[styles.button, scannerSessionId === item.id && styles.buttonDisabled, { backgroundColor: Colors.success }]}
+                onPress={() => openScanner(item.id, 'checkout')}
+                disabled={scannerSessionId === item.id}
+              >
+                <Text style={styles.buttonText}>Scan QR to Check Out</Text>
+              </TouchableOpacity>
             )}
-          </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={{ marginTop: 16 }}>
+            <Text style={[styles.detailText, { color: Colors.textMuted }]}>Waiting for instructor to start the session.</Text>
+          </View>
         )}
       </View>
     );
@@ -114,6 +222,24 @@ const StudentSessionsScreen: React.FC = () => {
           ListEmptyComponent={<Text style={{ color: Colors.textSecondary, textAlign: 'center' }}>No sessions found.</Text>}
         />
       )}
+
+      <Modal visible={scannerVisible} animationType="slide" transparent onRequestClose={closeScanner}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.scannerContainer}>
+            <Text style={styles.scannerTitle}>{scannerMode === 'checkout' ? 'Scan QR to Check Out' : 'Scan QR to Check In'}</Text>
+            <View style={styles.scannerBox}>
+              {cameraPermission === false ? (
+                <Text style={styles.detailText}>Camera access is required to scan the session QR code.</Text>
+              ) : (
+                <BarCodeScanner onBarCodeScanned={handleBarCodeScanned} style={StyleSheet.absoluteFillObject} />
+              )}
+            </View>
+            <TouchableOpacity style={styles.scannerClose} onPress={closeScanner}>
+              <Text style={styles.buttonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -179,6 +305,38 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#fff',
     fontWeight: 'bold',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  scannerContainer: {
+    backgroundColor: Colors.card,
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+  },
+  scannerTitle: {
+    ...Typography.Typography.h3,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  scannerBox: {
+    width: '100%',
+    height: 320,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#000',
+    marginBottom: 16,
+  },
+  scannerClose: {
+    width: '100%',
+    backgroundColor: Colors.primary,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
   },
 });
 

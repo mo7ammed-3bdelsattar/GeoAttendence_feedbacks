@@ -1,8 +1,12 @@
+import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 import { Request, Response } from 'express';
-import { db } from '../config/firebase-admin';
+import { db, admin } from '../config/firebase-admin';
 import { hasTimeOverlap, validateSessionPayload } from '../models/sessionModel';
 
-type SessionDoc = {
+const QR_TOKEN_SECRET = process.env.QR_TOKEN_SECRET || 'default-qr-secret';
+
+interface SessionDoc {
   courseId: string;
   facultyId: string;
   classroomId: string;
@@ -10,7 +14,13 @@ type SessionDoc = {
   startTime: string;
   endTime: string;
   createdAt: string;
-};
+  status?: string;
+  startedAt?: string;
+  checkInDeadline?: string;
+  qrSecret?: string;
+  qrRotatedAt?: string;
+  endedAt?: string;
+}
 
 async function isFacultyUser(userId: string): Promise<boolean> {
   if (!userId) return false;
@@ -44,7 +54,7 @@ async function hasClassroomConflict(
 export const getSessions = async (req: Request, res: Response) => {
   try {
     const { courseId, facultyId } = req.query;
-    let q = db.collection('sessions');
+    let q: admin.firestore.Query = db.collection('sessions');
 
     if (courseId) q = q.where('courseId', '==', courseId);
     if (facultyId) q = q.where('facultyId', '==', facultyId);
@@ -57,7 +67,7 @@ export const getSessions = async (req: Request, res: Response) => {
 
     res.json(sessions);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message, message: 'Unable to fetch sessions.' });
   }
 };
 
@@ -245,7 +255,7 @@ export const closeSession = async (req: Request, res: Response) => {
     const { id } = req.params;
     await db.collection('sessions').doc(id).update({
       status: 'ended',
-      endedAt: new Date().toISOString()
+      endedAt: new Date().toISOString(),
     });
 
     res.json({ message: 'Session closed' });
@@ -254,49 +264,407 @@ export const closeSession = async (req: Request, res: Response) => {
   }
 };
 
-export const getAttendance = async (req: Request, res: Response) => {
+function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const R = 6371000;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
 
+function validateQrToken(qrToken: string) {
+  const decoded = jwt.decode(qrToken) as any;
+  if (!decoded || !decoded.sessionId || !decoded.secret || !decoded.expiresAt) {
+    throw new Error('Invalid QR token.');
+  }
+  return decoded as { sessionId: string; secret: string; issuedAt: number; expiresAt: number };
+}
+
+async function generateAttendanceSummary(sessionId: string) {
+  const sessionRef = db.collection('sessions').doc(sessionId);
+  const sessionSnap = await sessionRef.get();
+  if (!sessionSnap.exists) {
+    throw new Error('Session not found.');
+  }
+
+  const session = sessionSnap.data() as SessionDoc;
+  if (!session.courseId) {
+    throw new Error('Session missing courseId.');
+  }
+
+  const enrollmentSnap = await db.collection('enrollments').where('courseId', '==', session.courseId).get();
+  const studentIds = enrollmentSnap.docs.map((doc) => doc.data().studentId as string);
+  const attendanceRef = sessionRef.collection('attendanceRecords');
+  const attendanceSnap = await attendanceRef.get();
+  const attendanceByStudent = Object.fromEntries(
+    attendanceSnap.docs.map((doc) => [doc.id, doc.data() as any])
+  );
+
+  const students = await Promise.all(
+    studentIds.map(async (studentId) => {
+      const userSnap = await db.collection('users').doc(studentId).get();
+      const studentName = userSnap.exists ? String(userSnap.data()?.name || userSnap.data()?.email || 'Unknown') : 'Unknown';
+      const record = attendanceByStudent[studentId];
+      const checkInAt = record?.checkInAt ?? null;
+      const checkOutAt = record?.checkOutAt ?? null;
+      const status = checkInAt
+        ? checkOutAt
+          ? 'PRESENT_FULL'
+          : 'PRESENT_NO_CHECKOUT'
+        : 'ABSENT';
+
+      if (!record) {
+        await attendanceRef.doc(studentId).set({
+          studentId,
+          studentName,
+          checkInAt: null,
+          checkOutAt: null,
+          status: 'ABSENT',
+        });
+      } else if (status === 'ABSENT' && record.status !== 'ABSENT') {
+        await attendanceRef.doc(studentId).set({
+          ...record,
+          status: 'ABSENT',
+        }, { merge: true });
+      }
+
+      return {
+        studentId,
+        studentName,
+        checkInAt,
+        checkOutAt,
+        status,
+      };
+    })
+  );
+
+  const checkedInOnly = students.filter((row) => row.status === 'PRESENT_NO_CHECKOUT').length;
+  const checkedInAndOut = students.filter((row) => row.status === 'PRESENT_FULL').length;
+  const totalPresent = checkedInOnly + checkedInAndOut;
+  const totalAbsent = students.filter((row) => row.status === 'ABSENT').length;
+
+  const summary = {
+    totalEnrolled: students.length,
+    totalPresent,
+    totalAbsent,
+    checkedInOnly,
+    checkedInAndOut,
+    students,
+  };
+
+  await sessionRef.collection('attendanceSummary').doc('summary').set(summary);
+  return summary;
+}
+
+export const startSession = async (req: Request, res: Response) => {
   try {
-    const { sessionId } = req.params;
-    const snapshot = await db.collection('attendance').where('sessionId', '==', sessionId).get();
-    const attendance = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    const { sessionId, courseId, roomId } = req.body as { sessionId?: string; courseId?: string; roomId?: string };
+    const currentUser = (req as any).currentUser;
+    if (!currentUser?.uid) {
+      return res.status(401).json({ error: 'unauthenticated', message: 'User not authenticated.' });
+    }
 
-    res.json(attendance);
+    const startedAt = new Date().toISOString();
+    const checkInDeadline = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    const qrSecret = crypto.randomUUID();
+    const qrRotatedAt = new Date().toISOString();
+
+    if (sessionId) {
+      const sessionRef = db.collection('sessions').doc(sessionId);
+      const sessionSnap = await sessionRef.get();
+      if (!sessionSnap.exists) {
+        return res.status(404).json({ error: 'session_not_found', message: 'Session not found.' });
+      }
+
+      const session = sessionSnap.data() as SessionDoc;
+      if (session.facultyId && session.facultyId !== currentUser.uid) {
+        return res.status(403).json({ error: 'forbidden', message: 'You may only start your own session.' });
+      }
+
+      await sessionRef.update({
+        status: 'active',
+        startedAt,
+        checkInDeadline,
+        qrSecret,
+        qrRotatedAt,
+      });
+
+      return res.json({ sessionId });
+    }
+
+    if (!courseId || !roomId) {
+      return res.status(400).json({ error: 'sessionId or courseId and roomId are required.' });
+    }
+
+    const classroomDoc = await db.collection('classrooms').doc(roomId).get();
+    if (!classroomDoc.exists) {
+      return res.status(400).json({ error: 'Invalid roomId.' });
+    }
+
+    const docRef = await db.collection('sessions').add({
+      courseId,
+      classroomId: roomId,
+      facultyId: currentUser.uid,
+      status: 'active',
+      startedAt,
+      checkInDeadline,
+      qrSecret,
+      qrRotatedAt,
+    });
+
+    return res.json({ sessionId: docRef.id });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('[START SESSION]', error);
+    return res.status(500).json({ error: 'server_error', message: 'Failed to start session.' });
   }
 };
 
-export const checkIn = async (req: Request, res: Response) => {
+export const endSession = async (req: Request, res: Response) => {
   try {
-    const { sessionId, userId, lat, lng } = req.body;
-
-    // Get session to check geofence
-    const sessionDoc = await db.collection('sessions').doc(sessionId).get();
-    if (!sessionDoc.exists) {
-      return res.status(404).json({ error: 'Session not found' });
+    const { sessionId } = req.body as { sessionId?: string };
+    if (!sessionId) {
+      return res.status(400).json({ error: 'sessionId is required.' });
     }
-    const session = sessionDoc.data();
 
-    // Calculate distance (simple approximation)
-    const distance = Math.sqrt(Math.pow(lat - session.lat, 2) + Math.pow(lng - session.lng, 2)) * 111000; // meters
-    const locationVerified = distance <= session.geofenceRadiusMeters;
+    const sessionRef = db.collection('sessions').doc(sessionId);
+    const sessionSnap = await sessionRef.get();
+    if (!sessionSnap.exists) {
+      return res.status(404).json({ error: 'Session not found.' });
+    }
 
-    const checkInData = {
-      sessionId,
-      userId,
-      checkedInAt: new Date().toISOString(),
-      lat,
-      lng,
-      locationVerified
+    await sessionRef.update({ status: 'ended', endedAt: new Date().toISOString() });
+    await generateAttendanceSummary(sessionId);
+
+    return res.json({ success: true });
+  } catch (error: any) {
+    console.error('[END SESSION]', error);
+    return res.status(500).json({ error: 'server_error', message: 'Failed to end session.' });
+  }
+};
+
+export const getSessionQr = async (req: Request, res: Response) => {
+  try {
+    const { sessionId } = req.params;
+    if (!sessionId) {
+      return res.status(400).json({ error: 'sessionId is required.' });
+    }
+
+    const sessionRef = db.collection('sessions').doc(sessionId);
+    const sessionSnap = await sessionRef.get();
+    if (!sessionSnap.exists) {
+      return res.status(404).json({ error: 'Session not found.' });
+    }
+
+    const session = sessionSnap.data() as SessionDoc;
+    if (session.status !== 'active') {
+      return res.status(400).json({ error: 'session_not_active', message: 'Session must be active to generate a QR code.' });
+    }
+
+    let { qrSecret, qrRotatedAt } = session;
+    const now = new Date();
+
+    if (!qrSecret || !qrRotatedAt || now.getTime() - new Date(qrRotatedAt).getTime() >= 30 * 1000) {
+      qrSecret = crypto.randomUUID();
+      qrRotatedAt = new Date().toISOString();
+      await sessionRef.update({ qrSecret, qrRotatedAt });
+    }
+
+    const expiresInMs = 30 * 1000;
+    const qrToken = jwt.sign(
+      {
+        sessionId,
+        secret: qrSecret,
+        issuedAt: now.getTime(),
+        expiresAt: now.getTime() + expiresInMs,
+      },
+      qrSecret,
+      { expiresIn: '30s' }
+    );
+
+    return res.json({
+      token: qrToken,
+      expiresAt: new Date(now.getTime() + expiresInMs).toISOString(),
+      ttlSeconds: 30,
+    });
+  } catch (error: any) {
+    console.error('[GET SESSION QR]', error);
+    return res.status(500).json({ error: 'server_error', message: 'Failed to get session QR.' });
+  }
+};
+
+export const checkInWithQr = async (req: Request, res: Response) => {
+  try {
+    const { qrToken, gpsCoords } = req.body as { qrToken?: string; gpsCoords?: { lat?: number; lng?: number } };
+    const currentUser = (req as any).currentUser;
+    if (!currentUser?.uid) {
+      return res.status(401).json({ error: 'unauthenticated', message: 'User not authenticated.' });
+    }
+    if (!qrToken || !gpsCoords?.lat || !gpsCoords?.lng) {
+      return res.status(400).json({ error: 'qrToken and gpsCoords are required.' });
+    }
+
+    const decoded = validateQrToken(qrToken);
+    const sessionRef = db.collection('sessions').doc(decoded.sessionId);
+    const sessionSnap = await sessionRef.get();
+    if (!sessionSnap.exists) {
+      return res.status(404).json({ error: 'session_not_found', message: 'Session not found.' });
+    }
+
+    const session = sessionSnap.data() as SessionDoc;
+    if (session.status !== 'active') {
+      return res.status(403).json({ error: 'session_not_active', message: 'QR is only valid while the session is active.' });
+    }
+    if (!session.qrSecret) {
+      return res.status(403).json({ error: 'invalid_qr', message: 'QR token is invalid.' });
+    }
+
+    try {
+      jwt.verify(qrToken, session.qrSecret);
+    } catch (error) {
+      return res.status(403).json({ error: 'invalid_qr', message: 'QR token is invalid or has been rotated.' });
+    }
+
+    const now = Date.now();
+    if (decoded.expiresAt <= now) {
+      return res.status(403).json({ error: 'qr_expired', message: 'The QR code expired. Ask the instructor to refresh it.' });
+    }
+
+    if (!session.checkInDeadline || now > new Date(session.checkInDeadline).getTime()) {
+      return res.status(403).json({ error: 'checkin_window_closed', message: 'Check-in window is closed. The session started more than 15 minutes ago.' });
+    }
+
+    const enrollmentSnap = await db.collection('enrollments')
+      .where('studentId', '==', currentUser.uid)
+      .where('courseId', '==', session.courseId)
+      .limit(1)
+      .get();
+
+    if (enrollmentSnap.empty) {
+      return res.status(403).json({ error: 'not_enrolled', message: 'You are not enrolled in this course.' });
+    }
+
+    const classroomDoc = await db.collection('classrooms').doc(session.classroomId).get();
+    if (!classroomDoc.exists) {
+      return res.status(400).json({ error: 'classroom_not_found', message: 'Classroom not found for session.' });
+    }
+    const classroom = classroomDoc.data() as { lat?: number; lng?: number; geofenceRadiusMeters?: number };
+    if (classroom.lat === undefined || classroom.lng === undefined) {
+      return res.status(400).json({ error: 'classroom_invalid', message: 'Classroom location is not configured.' });
+    }
+
+    const allowedRadius = Number(classroom.geofenceRadiusMeters ?? 50);
+    const distance = haversineMeters(gpsCoords.lat, gpsCoords.lng, classroom.lat, classroom.lng);
+    if (distance > allowedRadius) {
+      return res.status(403).json({ error: 'geofence_violation', message: 'You are outside the classroom geofence.' });
+    }
+
+    const attendanceRef = sessionRef.collection('attendanceRecords').doc(currentUser.uid);
+    const attendanceSnap = await attendanceRef.get();
+    if (attendanceSnap.exists && attendanceSnap.data()?.checkInAt) {
+      return res.status(409).json({ error: 'already_checked_in', message: 'You have already checked in.' });
+    }
+
+    const record = {
+      studentId: currentUser.uid,
+      checkInAt: new Date().toISOString(),
+      gpsCoords,
+      deviceId: req.headers['user-agent'] || 'unknown',
+      status: 'PRESENT',
     };
 
-    const docRef = await db.collection('attendance').add(checkInData);
-    res.status(201).json({ id: docRef.id, ...checkInData });
+    await attendanceRef.set(record, { merge: true });
+    return res.status(201).json(record);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('[CHECKIN QR]', error);
+    return res.status(500).json({ error: 'server_error', message: 'Unable to process check-in.' });
+  }
+};
+
+export const checkOutWithQr = async (req: Request, res: Response) => {
+  try {
+    const { qrToken, gpsCoords } = req.body as { qrToken?: string; gpsCoords?: { lat?: number; lng?: number } };
+    const currentUser = (req as any).currentUser;
+    if (!currentUser?.uid) {
+      return res.status(401).json({ error: 'unauthenticated', message: 'User not authenticated.' });
+    }
+    if (!qrToken || !gpsCoords?.lat || !gpsCoords?.lng) {
+      return res.status(400).json({ error: 'qrToken and gpsCoords are required.' });
+    }
+
+    const decoded = validateQrToken(qrToken);
+    const sessionRef = db.collection('sessions').doc(decoded.sessionId);
+    const sessionSnap = await sessionRef.get();
+    if (!sessionSnap.exists) {
+      return res.status(404).json({ error: 'session_not_found', message: 'Session not found.' });
+    }
+
+    const session = sessionSnap.data() as SessionDoc;
+    if (!session.qrSecret) {
+      return res.status(403).json({ error: 'invalid_qr', message: 'QR token is invalid.' });
+    }
+
+    try {
+      jwt.verify(qrToken, session.qrSecret);
+    if (session.status !== 'active') {
+      return res.status(403).json({ error: 'session_not_active', message: 'Session must be active for check-out.' });
+    }
+
+    const now = Date.now();
+    if (decoded.expiresAt <= now) {
+      return res.status(403).json({ error: 'qr_expired', message: 'The QR code expired. Ask the instructor to refresh it.' });
+    }
+
+    const classroomDoc = await db.collection('classrooms').doc(session.classroomId).get();
+    if (!classroomDoc.exists) {
+      return res.status(400).json({ error: 'classroom_not_found', message: 'Classroom not found for session.' });
+    }
+    const classroom = classroomDoc.data() as { lat?: number; lng?: number; geofenceRadiusMeters?: number };
+    if (classroom.lat === undefined || classroom.lng === undefined) {
+      return res.status(400).json({ error: 'classroom_invalid', message: 'Classroom location is not configured.' });
+    }
+    const allowedRadius = Number(classroom.geofenceRadiusMeters ?? 50);
+    const distance = haversineMeters(gpsCoords.lat, gpsCoords.lng, classroom.lat, classroom.lng);
+    if (distance > allowedRadius) {
+      return res.status(403).json({ error: 'geofence_violation', message: 'You are outside the classroom geofence.' });
+    }
+
+    } catch (error) {
+      return res.status(403).json({ error: 'invalid_qr', message: 'QR token is invalid or has been rotated.' });
+    }
+
+    const attendanceRef = sessionRef.collection('attendanceRecords').doc(currentUser.uid);
+    const attendanceSnap = await attendanceRef.get();
+    if (!attendanceSnap.exists || !attendanceSnap.data()?.checkInAt) {
+      return res.status(403).json({ error: 'not_checked_in', message: 'You must check in before checking out.' });
+    }
+
+    await attendanceRef.set({ checkOutAt: new Date().toISOString() }, { merge: true });
+    return res.json({ success: true });
+  } catch (error: any) {
+    console.error('[CHECKOUT QR]', error);
+    return res.status(500).json({ error: 'server_error', message: 'Unable to process check-out.' });
+  }
+};
+
+export const getSessionSummary = async (req: Request, res: Response) => {
+  try {
+    const { sessionId } = req.params;
+    if (!sessionId) {
+      return res.status(400).json({ error: 'sessionId is required.' });
+    }
+
+    const summarySnap = await db.collection('sessions').doc(sessionId).collection('attendanceSummary').doc('summary').get();
+    if (!summarySnap.exists) {
+      return res.status(404).json({ error: 'summary_not_found', message: 'Attendance summary not available.' });
+    }
+
+    return res.json(summarySnap.data());
+  } catch (error: any) {
+    console.error('[GET SUMMARY]', error);
+    return res.status(500).json({ error: 'server_error', message: 'Unable to fetch attendance summary.' });
   }
 };

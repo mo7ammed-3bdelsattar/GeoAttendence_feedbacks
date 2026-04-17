@@ -23,7 +23,7 @@ type Props = {
 
 const ROLES = [
   { label: '🎓 Student', value: 'student' },
-  { label: '📚 Instructor', value: 'faculty' },
+  { label: '📚 Instructor', value: 'instructor' },
   { label: '🛡️ Admin', value: 'admin' },
 ];
 
@@ -32,9 +32,10 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('student');
+  const [role, setRole] = useState<'student' | 'instructor' | 'admin'>('student');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [roleError, setRoleError] = useState<string | null>(null);
 
   const validate = () => {
     const e: typeof errors = {};
@@ -49,16 +50,22 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const handleLogin = async () => {
     if (!validate()) return;
     setLoading(true);
+    setRoleError(null);
     try {
       await login(email.trim(), password, role as any);
       // Navigation handled by AuthContext listener in AppNavigator
     } catch (err: any) {
       const msg =
-        err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password'
-          ? 'Invalid email or password.'
-          : err.code === 'auth/too-many-requests'
-            ? 'Too many attempts. Please try again later.'
-            : err.message ?? 'Login failed.';
+        err.message === 'RoleMismatch'
+          ? 'The selected role does not match your account type. Please choose the correct role and try again.'
+          : err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password'
+            ? 'Invalid email or password.'
+            : err.code === 'auth/too-many-requests'
+              ? 'Too many attempts. Please try again later.'
+              : err.message ?? 'Login failed.';
+      if (err.message === 'RoleMismatch') {
+        setRoleError('This account belongs to a different role. Please choose the correct role above.');
+      }
       Alert.alert('Login Failed', msg);
     } finally {
       setLoading(false);
@@ -106,7 +113,10 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                     styles.roleChip,
                     role === r.value && styles.roleChipActive,
                   ]}
-                  onPress={() => setRole(r.value)}
+                  onPress={() => {
+                    setRole(r.value as 'student' | 'instructor' | 'admin');
+                    setRoleError(null);
+                  }}
                   activeOpacity={0.75}
                 >
                   <Text
@@ -120,6 +130,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 </TouchableOpacity>
               ))}
             </View>
+            {roleError ? <Text style={styles.roleError}>{roleError}</Text> : null}
           </View>
 
           {/* Fields */}
@@ -295,6 +306,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: Colors.border,
     alignItems: 'center',
+    paddingHorizontal: Spacing.xs,
   },
   roleChipActive: {
     borderColor: Colors.primary,
@@ -307,6 +319,12 @@ const styles = StyleSheet.create({
   },
   roleChipTextActive: {
     color: Colors.primaryLight,
+  },
+  roleError: {
+    marginTop: Spacing.sm,
+    color: Colors.error,
+    fontSize: 12,
+    fontWeight: '600',
   },
 
   // Forgot

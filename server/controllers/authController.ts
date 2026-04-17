@@ -1,6 +1,14 @@
 import { Request, Response } from 'express';
 import { db, auth as adminAuth } from '../config/firebase-admin';
 
+const normalizeRole = (role?: string) => {
+  if (!role) return undefined;
+  const lower = role.toLowerCase();
+  if (lower === 'instructor' || lower === 'faculty') return 'faculty';
+  if (lower === 'admin') return 'admin';
+  return 'student';
+};
+
 export const login = async (req: Request, res: Response) => {
   try {
     const { email, password, role, token } = req.body;
@@ -22,7 +30,9 @@ export const login = async (req: Request, res: Response) => {
       }
 
       const userData = userDoc.data();
-      if (userData?.role !== role) {
+      const normalizedUserRole = normalizeRole(String(userData?.role));
+      const normalizedSelectedRole = normalizeRole(role);
+      if (normalizedUserRole !== normalizedSelectedRole) {
         return res.status(403).json({ error: 'Role mismatch.' });
       }
 
@@ -30,7 +40,7 @@ export const login = async (req: Request, res: Response) => {
         id: uid,
         name: userData?.name || finalEmail,
         email: finalEmail,
-        role: userData?.role
+        role: normalizedUserRole
       });
     } else {
       // Mock authentication - backward compatibility
@@ -38,11 +48,14 @@ export const login = async (req: Request, res: Response) => {
         'student@uni.edu': { password: 'password123', role: 'student', name: 'John Student' },
         'faculty@uni.edu': { password: 'password123', role: 'faculty', name: 'Dr. Jane Faculty' },
         'admin@uni.edu': { password: 'password123', role: 'admin', name: 'Admin User' },
-        'ahmedaymanmido307@gmail.com': { password: 'password123', role: 'faculty', name: 'Ahmed Ayman' },
+        'ahmedaymanmido307@gmail.com': { password: 'password123', role: 'admin', name: 'Ahmed Ayman' },
       };
 
       const user = mockUsers[finalEmail as keyof typeof mockUsers];
-      if (!user || user.password !== password || user.role !== role) {
+      const normalizedUserRole = normalizeRole(user?.role);
+      const normalizedSelectedRole = normalizeRole(role);
+      if (!user || user.password !== password || normalizedUserRole !== normalizedSelectedRole) {
+        console.log('Auth failed:', { user: !!user, passwordMatch: user?.password === password, roleMatch: normalizedUserRole === normalizedSelectedRole, expectedRole: role, userRole: user?.role });
         return res.status(401).json({ error: 'Invalid credentials' });
       }
 

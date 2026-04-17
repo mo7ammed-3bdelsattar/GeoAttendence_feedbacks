@@ -9,24 +9,58 @@ import * as sessionController from '../controllers/sessionController';
 import * as feedbackController from '../controllers/feedbackController';
 import * as attendanceController from '../controllers/attendanceController';
 import { getStudentCourses, getStudentDashboard, studentScheduleController } from '../controllers/studentController';
+import { requireRole } from '../middleware/requireRole';
+import { Request, Response } from 'express';
+import { db } from '../config/firebase-admin';
 
 const router = Router();
+
+// Health check endpoint
+router.get('/health', (req: Request, res: Response) => {
+  res.json({ status: 'ok', message: 'API Gateway is running' });
+});
+
+// Firestore connection test
+router.get('/admin/health/firestore', async (req: Request, res: Response) => {
+  try {
+    const snapshot = await db.collection('_health_check').limit(1).get();
+    res.json({ status: 'connected', message: 'Firestore is accessible' });
+  } catch (error: any) {
+    res.status(500).json({ 
+      status: 'disconnected', 
+      error: error.message,
+      code: error.code 
+    });
+  }
+});
 
 // Auth routes
 router.post('/auth/login', authController.login);
 router.post('/auth/reset-password', authController.resetPassword);
 
 // User/Admin routes
-router.get('/admin/users', userController.getUsers);
-router.post('/admin/users', userController.createUser);
-router.patch('/admin/users/:id', userController.updateUser);
-router.delete('/admin/users/:id', userController.deleteUser);
+router.get('/admin/users', requireRole('admin'), userController.getUsers);
+router.post('/admin/users', requireRole('admin'), userController.createUser);
+router.patch('/admin/users/:id', requireRole('admin'), userController.updateUser);
+router.delete('/admin/users/:id', requireRole('admin'), userController.deleteUser);
 
 // Department routes
-router.get('/admin/departments', departmentController.getDepartments);
-router.post('/admin/departments', departmentController.createDepartment);
-router.patch('/admin/departments/:id', departmentController.updateDepartment);
-router.delete('/admin/departments/:id', departmentController.deleteDepartment);
+router.get('/admin/departments', requireRole('admin'), departmentController.getDepartments);
+router.post('/admin/departments', requireRole('admin'), departmentController.createDepartment);
+router.patch('/admin/departments/:id', requireRole('admin'), departmentController.updateDepartment);
+router.delete('/admin/departments/:id', requireRole('admin'), departmentController.deleteDepartment);
+
+// Course routes
+router.get('/admin/courses', requireRole('admin'), courseController.getCourses);
+router.post('/admin/courses', requireRole('admin'), courseController.createCourse);
+router.patch('/admin/courses/:id', requireRole('admin'), courseController.updateCourse);
+router.delete('/admin/courses/:id', requireRole('admin'), courseController.deleteCourse);
+
+// Classroom routes
+router.get('/admin/classrooms', requireRole('admin'), classroomController.getClassrooms);
+router.post('/admin/classrooms', requireRole('admin'), classroomController.createClassroom);
+router.patch('/admin/classrooms/:id', requireRole('admin'), classroomController.updateClassroom);
+router.delete('/admin/classrooms/:id', requireRole('admin'), classroomController.deleteClassroom);
 
 // Enrollment routes
 router.get('/enrollments', enrollmentController.getEnrollments);
@@ -35,19 +69,6 @@ router.post('/enrollments', enrollmentController.enrollStudent);
 router.patch('/enrollments/:id', enrollmentController.updateEnrollment);
 router.delete('/enrollments/:id', enrollmentController.unenrollStudent);
 
-// Course routes
-router.get('/courses', courseController.getCourses);
-router.get('/admin/courses', courseController.getCourses);
-router.post('/admin/courses', courseController.createCourse);
-router.patch('/admin/courses/:id', courseController.updateCourse);
-router.delete('/admin/courses/:id', courseController.deleteCourse);
-
-// Classroom routes
-router.get('/admin/classrooms', classroomController.getClassrooms);
-router.post('/admin/classrooms', classroomController.createClassroom);
-router.patch('/admin/classrooms/:id', classroomController.updateClassroom);
-router.delete('/admin/classrooms/:id', classroomController.deleteClassroom);
-
 // Session routes
 router.post('/sessions', sessionController.createSession);
 router.get('/sessions', sessionController.getSessions);
@@ -55,6 +76,12 @@ router.get('/sessions/faculty/:id', sessionController.getSessionsByFaculty);
 router.get('/sessions/student/:id', sessionController.getSessionsByStudent);
 router.put('/sessions/:id', sessionController.updateSession);
 router.delete('/sessions/:id', sessionController.deleteSession);
+router.post('/sessions/start', requireRole('faculty'), sessionController.startSession);
+router.post('/sessions/end', requireRole('faculty'), sessionController.endSession);
+router.get('/sessions/:sessionId/qr', requireRole('faculty'), sessionController.getSessionQr);
+router.post('/sessions/checkin', requireRole('student'), sessionController.checkInWithQr);
+router.post('/sessions/checkout', requireRole('student'), sessionController.checkOutWithQr);
+router.get('/sessions/:sessionId/summary', requireRole('faculty'), sessionController.getSessionSummary);
 
 // Attendance routes
 router.post('/attendance', attendanceController.markAttendance);
