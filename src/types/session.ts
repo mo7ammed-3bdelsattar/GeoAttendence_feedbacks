@@ -9,7 +9,9 @@ export interface Session {
   endTime: string;
   createdAt?: string;
   topic?: string;
-  status?: 'scheduled' | 'active' | 'ended';
+  status?: 'UPCOMING' | 'ACTIVE' | 'ENDED' | 'scheduled' | 'active' | 'ended';
+  startedAt?: string | null;
+  endedAt?: string | null;
   classroomName?: string;
   facultyName?: string;
   courseCode?: string;

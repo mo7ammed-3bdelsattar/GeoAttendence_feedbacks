@@ -36,28 +36,15 @@ export function FacultySessionsPage() {
   const [search, setSearch] = useState('');
   const [dateFilter, setDateFilter] = useState('');
   const [attendanceSummary, setAttendanceSummary] = useState<Record<string, { presentCount: number; absentCount: number }>>({});
-  const [sessionQrs, setSessionQrs] = useState<Record<string, { token: string; expiresAt: string }>>({});
-  const [activeSessionOp, setActiveSessionOp] = useState<string | null>(null);
-  const [liveQrSessionId, setLiveQrSessionId] = useState<string | null>(null);
-  
-  // Form states for creating/editing
-  const [showForm, setShowForm] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [selectedSession, setSelectedSession] = useState<Session | null>(null);
-  const [formData, setFormData] = useState({
-    topic: '',
-    startTime: '',
-    endTime: '',
-    classroomId: '',
-    courseId: ''
-  });
+  const [processingSessionId, setProcessingSessionId] = useState<string | null>(null);
 
-  const fetchData = async () => {
-    if (!user?.id) {
-      setSessions([]);
-      setLoading(false);
-      return;
-    }
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!user?.id) {
+        setSessions([]);
+        setLoading(false);
+        return;
+      }
 
     setLoading(true);
     try {
@@ -178,33 +165,53 @@ export function FacultySessionsPage() {
         return (bDate?.getTime() ?? 0) - (aDate?.getTime() ?? 0);
       });
   }, [sessions, dateFilter, search]);
-  const today = new Date().toISOString().slice(0, 10);
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this session?')) return;
+  const todaySessions = filteredSessions.filter((session) => session.date === today);
+  const upcomingSessions = filteredSessions.filter((session) => session.date > today);
+
+  const getStatusUi = (status?: string) => {
+    const normalized = (status || 'UPCOMING').toUpperCase();
+    if (normalized === 'ACTIVE') return { label: 'Active', className: 'bg-emerald-100 text-emerald-700' };
+    if (normalized === 'ENDED') return { label: 'Ended', className: 'bg-gray-200 text-gray-700' };
+    return { label: 'Upcoming', className: 'bg-blue-100 text-blue-700' };
+  };
+
+  const handleStartSession = async (sessionId: string) => {
+    setProcessingSessionId(sessionId);
     try {
-      await sessionApi.deleteSession(id);
-      setSessions(prev => prev.filter(s => s.id !== id));
-      toast.success('Session deleted');
-    } catch {
-      toast.error('Failed to delete session');
+      await sessionApi.startSession(sessionId);
+      setSessions((prev) =>
+        prev.map((session) =>
+          session.id === sessionId
+            ? { ...session, status: 'ACTIVE', startedAt: new Date().toISOString(), endedAt: null }
+            : session
+        )
+      );
+      toast.success('Session started.');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || 'Failed to start session.');
+    } finally {
+      setProcessingSessionId(null);
     }
   };
 
-  const handleEdit = (session: Session) => {
-    const startDate = parseSessionDateTime(session, 'startTime');
-    const endDate = parseSessionDateTime(session, 'endTime');
-
-    setSelectedSession(session);
-    setFormData({
-      topic: session.topic || '',
-      startTime: startDate ? startDate.toISOString().slice(0, 16) : '',
-      endTime: endDate ? endDate.toISOString().slice(0, 16) : '',
-      classroomId: session.classroomId || '',
-      courseId: session.courseId || ''
-    });
-    setIsEditing(true);
-    setShowForm(true);
+  const handleEndSession = async (sessionId: string) => {
+    setProcessingSessionId(sessionId);
+    try {
+      await sessionApi.endSession(sessionId);
+      setSessions((prev) =>
+        prev.map((session) =>
+          session.id === sessionId
+            ? { ...session, status: 'ENDED', endedAt: new Date().toISOString() }
+            : session
+        )
+      );
+      toast.success('Session ended.');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || 'Failed to end session.');
+    } finally {
+      setProcessingSessionId(null);
+    }
   };
 
   return (
@@ -245,11 +252,11 @@ export function FacultySessionsPage() {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {filteredSessions.map((session) => {
-              const startDate = parseSessionDateTime(session, 'startTime');
-              const endDate = parseSessionDateTime(session, 'endTime');
-              const sessionDate = startDate ? startDate.toISOString().slice(0, 10) : '';
-              const isToday = sessionDate === today;
-              
+              const isToday = session.date === today;
+              const normalizedStatus = (session.status || 'UPCOMING').toUpperCase();
+              const statusUi = getStatusUi(normalizedStatus);
+              const isActive = normalizedStatus === 'ACTIVE';
+              const isEnded = normalizedStatus === 'ENDED';
               return (
                 <div
                   key={session.id}
@@ -270,14 +277,11 @@ export function FacultySessionsPage() {
                         Today
                       </span>
                     )}
-                    <button
-                      onClick={() => handleDelete(session.id)}
-                      aria-label="Delete session"
-                      className="p-1 text-gray-400 hover:text-red-500"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                    </div>
+                  </div>
+                  <div className="mb-3">
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${statusUi.className}`}>
+                      {statusUi.label}
+                    </span>
                   </div>
 
                   <div className="space-y-2 text-sm text-gray-600">
@@ -362,26 +366,24 @@ export function FacultySessionsPage() {
                         </>
                       )}
                     </div>
-
-                    {sessionQrs[session.id] && session.status === 'active' ? (
-                      <div className="mt-4 rounded-2xl border border-primary/20 bg-primary/5 p-4 text-sm text-gray-700">
-                        <div className="mb-3 flex items-center justify-between gap-3">
-                          <span className="font-semibold text-gray-900">Live QR for students</span>
-                          <span className="text-xs text-gray-500">Expires {new Date(sessionQrs[session.id].expiresAt).toLocaleTimeString()}</span>
-                        </div>
-                        <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center">
-                          <img
-                            src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(sessionQrs[session.id].token)}`}
-                            alt="Session QR code"
-                            className="h-40 w-40 rounded-2xl bg-white p-2"
-                          />
-                          <div className="max-w-[260px] break-all rounded-2xl border border-gray-200 bg-white p-3 text-xs text-gray-700">
-                            <p className="font-semibold text-gray-900 mb-1">QR token</p>
-                            <p className="leading-5">{sessionQrs[session.id].token}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ) : null}
+                  </div>
+                  <div className="mt-4 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleStartSession(session.id)}
+                      disabled={processingSessionId === session.id || isActive || isEnded}
+                      className="px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {processingSessionId === session.id && !isActive ? 'Starting...' : 'Start Session'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleEndSession(session.id)}
+                      disabled={processingSessionId === session.id || !isActive}
+                      className="px-3 py-2 rounded-lg bg-gray-800 text-white text-sm font-semibold hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {processingSessionId === session.id && isActive ? 'Ending...' : 'End Session'}
+                    </button>
                   </div>
                 </div>
               );

@@ -8,6 +8,7 @@ import { auth as clientAuth } from '../config/firebase';
 import { getAccessToken } from '../utils/storage.ts';
 import type { Attendance, Classroom, Course, Department, Enrollment, Session, User, UserRole } from '../types/index.ts';
 import type { Feedback } from '../types/feedback.ts';
+import { getAccessToken } from '../utils/storage.ts';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -19,25 +20,14 @@ const api: AxiosInstance = axios.create({
   },
 });
 
-function getApiMessage(error: any, fallback: string): string {
-  const code = error?.response?.data?.error;
-  const message = error?.response?.data?.message || error?.response?.data?.error;
-  if (code === 'role_mismatch' || message === 'Role mismatch.') {
-    return 'The selected role does not match your account. Please choose the correct role.';
+api.interceptors.request.use((config) => {
+  const token = getAccessToken();
+  if (token) {
+    config.headers = config.headers ?? {};
+    config.headers.Authorization = `Bearer ${token}`;
   }
-  return message || fallback;
-}
-
-api.interceptors.request.use(
-  (config) => {
-    const token = getAccessToken();
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+  return config;
+});
 
 export const authApi = {
   async login(email: string, password: string, role: UserRole): Promise<{ user: User; token: string }> {
@@ -192,6 +182,10 @@ export const enrollmentApi = {
 
   async unenrollStudent(id: string): Promise<void> {
     await api.delete(`/enrollments/${id}`);
+  },
+
+  async unenrollMyCourse(courseId: string): Promise<void> {
+    await api.delete(`/enrollments/${courseId}`);
   }
 };
 
@@ -252,6 +246,31 @@ export const sessionApi = {
 
   async saveStudentCourses(studentId: string, courseIds: string[]): Promise<void> {
     await api.post('/student/courses', { studentId, courseIds });
+  },
+
+  async startSession(id: string): Promise<{ id: string; status: string; startedAt: string }> {
+    const response = await api.post(`/sessions/${id}/start`);
+    return response.data;
+  },
+
+  async endSession(id: string): Promise<{ id: string; status: string; endedAt: string }> {
+    const response = await api.post(`/sessions/${id}/end`);
+    return response.data;
+  }
+};
+
+export const notificationApi = {
+  async getMyNotifications(): Promise<Array<{
+    id: string;
+    type: string;
+    courseId: string;
+    sessionId: string;
+    title: string;
+    message: string;
+    createdAt: string;
+  }>> {
+    const response = await api.get('/notifications/my');
+    return response.data;
   }
 };
 
@@ -365,6 +384,10 @@ export const feedbackApi = {
   async getFeedbackByStudent(studentId: string): Promise<Feedback[]> {
     const response = await api.get(`/feedback/student/${studentId}`);
     return response.data;
+  },
+
+  async deleteFeedback(id: string): Promise<void> {
+    await api.delete(`/feedback/${id}`);
   }
 };
 
@@ -385,6 +408,28 @@ export const studentApi = {
     feedbackCount: number;
   }> {
     const response = await api.get(`/student/dashboard/${studentId}`);
+    return response.data;
+  },
+
+  async getMySchedule(): Promise<Array<{
+    courseId: string;
+    courseName: string;
+    instructorName: string;
+    day: string;
+    time: string;
+  }>> {
+    const response = await api.get('/student/my-schedule');
+    return response.data;
+  },
+
+  async getMyCourses(): Promise<Array<{
+    courseId: string;
+    courseName: string;
+    instructorName: string;
+    day: string;
+    time: string;
+  }>> {
+    const response = await api.get('/student/my-courses');
     return response.data;
   }
 };

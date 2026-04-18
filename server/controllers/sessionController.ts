@@ -3,10 +3,9 @@ import jwt from 'jsonwebtoken';
 import { Request, Response } from 'express';
 import { db, admin } from '../config/firebase-admin';
 import { hasTimeOverlap, validateSessionPayload } from '../models/sessionModel';
+import { getAuthenticatedUser } from '../middleware/authGuard';
 
-const QR_TOKEN_SECRET = process.env.QR_TOKEN_SECRET || 'default-qr-secret';
-
-interface SessionDoc {
+type SessionDoc = {
   courseId: string;
   facultyId: string;
   classroomId: string;
@@ -14,13 +13,10 @@ interface SessionDoc {
   startTime: string;
   endTime: string;
   createdAt: string;
-  status?: string;
+  status?: 'UPCOMING' | 'ACTIVE' | 'ENDED';
   startedAt?: string;
-  checkInDeadline?: string;
-  qrSecret?: string;
-  qrRotatedAt?: string;
   endedAt?: string;
-}
+};
 
 async function isFacultyUser(userId: string): Promise<boolean> {
   if (!userId) return false;
@@ -158,13 +154,111 @@ export const createSession = async (req: Request, res: Response) => {
     const createdAt = new Date().toISOString();
     const docRef = await db.collection('sessions').add({
       ...payload,
-      createdAt
+      createdAt,
+      status: 'UPCOMING'
     });
-    const newSession = { id: docRef.id, ...payload, createdAt };
+    const newSession = { id: docRef.id, ...payload, createdAt, status: 'UPCOMING' as const };
 
     res.status(201).json(newSession);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+async function notifyStudentsSessionStarted(sessionId: string, session: SessionDoc) {
+  const [courseSnap, enrollmentsSnap] = await Promise.all([
+    db.collection('courses').doc(session.courseId).get(),
+    db.collection('enrollments').where('courseId', '==', session.courseId).get()
+  ]);
+  const courseName = String(courseSnap.data()?.name || 'your course');
+  const title = 'Session Started';
+  const message = `Your instructor has started the session for ${courseName}`;
+  const createdAt = new Date().toISOString();
+
+  const writes = enrollmentsSnap.docs.map((doc) => {
+    const studentId = String(doc.data().studentId || '');
+    if (!studentId) return null;
+    return db.collection('notifications').add({
+      studentId,
+      courseId: session.courseId,
+      sessionId,
+      type: 'session_started',
+      title,
+      message,
+      read: false,
+      createdAt
+    });
+  }).filter(Boolean);
+
+  if (writes.length > 0) {
+    await Promise.all(writes as Promise<any>[]);
+  }
+}
+
+export const startSessionById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ error: 'Session ID is required.' });
+
+    const currentUser = getAuthenticatedUser(req);
+    if (!currentUser?.uid) return res.status(401).json({ error: 'Unauthorized' });
+    if (currentUser.role && currentUser.role !== 'faculty') {
+      return res.status(403).json({ error: 'Forbidden: Faculty access only.' });
+    }
+
+    const sessionRef = db.collection('sessions').doc(id);
+    const sessionSnap = await sessionRef.get();
+    if (!sessionSnap.exists) return res.status(404).json({ error: 'Session not found.' });
+    const session = sessionSnap.data() as SessionDoc;
+
+    if (session.facultyId !== currentUser.uid) {
+      return res.status(403).json({ error: 'Only assigned instructor can start this session.' });
+    }
+    if (session.status === 'ACTIVE') {
+      return res.status(409).json({ error: 'Session is already active.' });
+    }
+    if (session.status === 'ENDED') {
+      return res.status(409).json({ error: 'Cannot start an ended session.' });
+    }
+
+    const startedAt = new Date().toISOString();
+    await sessionRef.update({ status: 'ACTIVE', startedAt, endedAt: null });
+    await notifyStudentsSessionStarted(id, session);
+
+    return res.json({ id, status: 'ACTIVE', startedAt });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+};
+
+export const endSessionById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ error: 'Session ID is required.' });
+
+    const currentUser = getAuthenticatedUser(req);
+    if (!currentUser?.uid) return res.status(401).json({ error: 'Unauthorized' });
+    if (currentUser.role && currentUser.role !== 'faculty') {
+      return res.status(403).json({ error: 'Forbidden: Faculty access only.' });
+    }
+
+    const sessionRef = db.collection('sessions').doc(id);
+    const sessionSnap = await sessionRef.get();
+    if (!sessionSnap.exists) return res.status(404).json({ error: 'Session not found.' });
+    const session = sessionSnap.data() as SessionDoc;
+
+    if (session.facultyId !== currentUser.uid) {
+      return res.status(403).json({ error: 'Only assigned instructor can end this session.' });
+    }
+    if (session.status !== 'ACTIVE') {
+      return res.status(409).json({ error: 'Cannot end a session that is not active.' });
+    }
+
+    const endedAt = new Date().toISOString();
+    await sessionRef.update({ status: 'ENDED', endedAt });
+    return res.json({ id, status: 'ENDED', endedAt });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
   }
 };
 

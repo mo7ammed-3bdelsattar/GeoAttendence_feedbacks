@@ -4,7 +4,7 @@ import { AppShell } from '../../components/layout/AppShell.tsx';
 import { StarRatingDisplay } from '../../components/ui/StarRating.tsx';
 import type { Course } from '../../types/course.ts';
 import { toast } from 'react-hot-toast';
-import { Shield, Filter } from 'lucide-react';
+import { Shield, Filter, Trash2 } from 'lucide-react';
 import type { Feedback } from '../../types/feedback.ts';
 
 
@@ -13,6 +13,7 @@ export function AdminFeedbackAuditPage() {
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
   const [feedback, setFeedback] = useState<Feedback[]>([]);
   const [fetchingFeedback, setFetchingFeedback] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchCourses() {
@@ -50,6 +51,25 @@ export function AdminFeedbackAuditPage() {
   const averageRating = feedback.length > 0
     ? (feedback.reduce((sum, item) => sum + Number(item.rating || 0), 0) / feedback.length)
     : 0;
+
+  const handleDeleteFeedback = async (feedbackId: string) => {
+    const confirmed = window.confirm('Are you sure you want to delete this feedback item?');
+    if (!confirmed) return;
+
+    setDeletingId(feedbackId);
+    const previousFeedback = feedback;
+    setFeedback((prev) => prev.filter((item) => item.id !== feedbackId));
+
+    try {
+      await feedbackApi.deleteFeedback(feedbackId);
+      toast.success('Feedback deleted successfully');
+    } catch {
+      setFeedback(previousFeedback);
+      toast.error('Failed to delete feedback');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <AppShell title="Course Feedback">
@@ -102,6 +122,7 @@ export function AdminFeedbackAuditPage() {
                       <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest text-center">Rating</th>
                       <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Message</th>
                       <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Date Submitted</th>
+                      <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest text-right">Actions</th>
                    </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -129,11 +150,22 @@ export function AdminFeedbackAuditPage() {
                             <td className="px-6 py-4">
                                <p className="text-gray-500 text-xs font-medium">{new Date(f.createdAt).toLocaleDateString()}</p>
                             </td>
+                            <td className="px-6 py-4 text-right">
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteFeedback(f.id)}
+                                disabled={deletingId === f.id}
+                                className="inline-flex items-center gap-2 rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                {deletingId === f.id ? 'Deleting...' : 'Delete'}
+                              </button>
+                            </td>
                          </tr>
                       ))
                    ) : (
                       <tr>
-                         <td colSpan={4} className="px-6 py-20 text-center text-gray-400">
+                         <td colSpan={5} className="px-6 py-20 text-center text-gray-400">
                             <div className="flex flex-col items-center">
                                <Filter className="h-12 w-12 text-gray-200 mb-2" />
                                <p className="text-lg font-medium">No feedback audit records found for this course.</p>
