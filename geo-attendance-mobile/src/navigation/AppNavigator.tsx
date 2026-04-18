@@ -9,6 +9,7 @@ import { RootStackParamList, AdminTabParamList, InstructorTabParamList, StudentT
 import { useAuth } from '../context/AuthContext';
 import LoginScreen from '../screens/LoginScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 
 // Placeholders for the screens we need to create
 import AdminDashboardScreen from '../screens/AdminDashboardScreen';
@@ -89,6 +90,7 @@ const SplashScreen: React.FC = () => (
 
 const AppNavigator: React.FC = () => {
   const { user, loading } = useAuth();
+  usePushNotifications(user);
 
   if (loading) return <SplashScreen />;
 

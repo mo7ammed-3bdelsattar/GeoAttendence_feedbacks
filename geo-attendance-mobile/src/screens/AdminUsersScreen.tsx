@@ -217,7 +217,7 @@ const AdminUsersScreen: React.FC = () => {
           <View style={{ minWidth: 540 }}>
             <FlatList
               data={users}
-              keyExtractor={(item) => item.id || item._id || Math.random().toString()}
+              keyExtractor={(item) => item.id || Math.random().toString()}
               renderItem={renderItem}
               ListHeaderComponent={tableHeader}
               contentContainerStyle={{ paddingBottom: 100 }} 

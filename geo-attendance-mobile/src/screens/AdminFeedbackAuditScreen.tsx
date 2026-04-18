@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl } f
 import Colors from '../theme/colors';
 import Typography from '../theme/typography';
 import { feedbackApi } from '../services/api';
-import type { Feedback } from '../types/feedback'; // Check if we should import from types or services
+import type { Feedback } from '../types';
 
 const AdminFeedbackAuditScreen: React.FC = () => {
   const [feedbacks, setFeedbacks] = useState<any[]>([]);

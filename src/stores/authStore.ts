@@ -10,6 +10,8 @@ interface AuthState {
   isLoading: boolean;
   error: string | null;
   login: (email: string, password: string, role: UserRole) => Promise<void>;
+  /** Restores the user session using the token in storage. */
+  restoreSession: (user: User, token: string) => void;
   logout: () => Promise<void>;
   /** Clears tokens and auth state (used by logout and when token is missing). */
   clearSession: () => void;
@@ -27,8 +29,7 @@ export const useAuthStore = create<AuthState>()(
       login: async (email, password, role) => {
         set({ isLoading: true, error: null });
         try {
-          const user = await authApi.login(email, password, role);
-          const token = `geo-${btoa(JSON.stringify({ sub: user.id, role }))}.${Date.now()}`;
+          const { user, token } = await authApi.login(email, password, role);
           setAccessToken(token);
           set({ user, isAuthenticated: true, isLoading: false, error: null });
         } catch (e) {
@@ -36,6 +37,11 @@ export const useAuthStore = create<AuthState>()(
           throw e;
         }
       },
+      restoreSession: (user, token) => {
+        setAccessToken(token);
+        set({ user, isAuthenticated: true, isLoading: false, error: null });
+      },
+
       logout: async () => {
         await authApi.logout();
         get().clearSession();

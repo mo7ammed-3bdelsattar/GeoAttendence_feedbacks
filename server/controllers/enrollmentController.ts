@@ -1,5 +1,9 @@
 import { Request, Response } from 'express';
 import { db } from '../config/firebase-admin';
+import { getAuthenticatedUser } from '../middleware/authGuard';
+
+const UNENROLL_WINDOW_HOURS = Number(process.env.UNENROLL_WINDOW_HOURS ?? 24);
+const UNENROLL_WINDOW_MS = (Number.isFinite(UNENROLL_WINDOW_HOURS) && UNENROLL_WINDOW_HOURS > 0 ? UNENROLL_WINDOW_HOURS : 24) * 60 * 60 * 1000;
 
 /**
  * Get all enrollments or filter by studentId or courseId
@@ -67,6 +71,7 @@ export const enrollStudent = async (req: Request, res: Response) => {
         const newEnrollment = {
             studentId,
             courseId,
+            enrolledAt: new Date().toISOString(),
             createdAt: new Date().toISOString(),
         };
 
@@ -97,13 +102,48 @@ export const getEnrollmentsByStudent = async (req: Request, res: Response) => {
  */
 export const unenrollStudent = async (req: Request, res: Response) => {
     try {
-        const { id } = req.params;
-
-        if (!id) {
-            return res.status(400).json({ error: 'Enrollment ID is required' });
+        const { id: courseId } = req.params;
+        if (!courseId) {
+            return res.status(400).json({ error: 'Course ID is required' });
         }
 
-        await db.collection('enrollments').doc(String(id)).delete();
+        const currentUser = getAuthenticatedUser(req);
+        if (!currentUser?.uid) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        if (currentUser.role && currentUser.role !== 'student') {
+            return res.status(403).json({ error: 'Forbidden: Student access only.' });
+        }
+
+        const enrollmentSnap = await db.collection('enrollments')
+            .where('studentId', '==', currentUser.uid)
+            .where('courseId', '==', String(courseId))
+            .limit(1)
+            .get();
+
+        if (enrollmentSnap.empty) {
+            return res.status(404).json({ error: 'Enrollment not found for this course.' });
+        }
+
+        const enrollmentDoc = enrollmentSnap.docs[0];
+        const enrollmentData = enrollmentDoc.data() as { enrolledAt?: string; createdAt?: string } | undefined;
+        const enrolledAtRaw = enrollmentData?.enrolledAt || enrollmentData?.createdAt;
+        if (!enrolledAtRaw) {
+            return res.status(400).json({ error: 'Enrollment timestamp missing.' });
+        }
+
+        const enrolledAtMs = new Date(enrolledAtRaw).getTime();
+        if (Number.isNaN(enrolledAtMs)) {
+            return res.status(400).json({ error: 'Invalid enrollment timestamp.' });
+        }
+
+        const elapsedMs = Date.now() - enrolledAtMs;
+        if (elapsedMs > UNENROLL_WINDOW_MS) {
+            return res.status(403).json({ error: 'Unenrollment period expired (24 hours passed)' });
+        }
+
+        await enrollmentDoc.ref.delete();
         res.status(204).send();
     } catch (error: any) {
         res.status(500).json({ error: error.message });
@@ -129,5 +169,68 @@ export const updateEnrollment = async (req: Request, res: Response) => {
         res.json({ id: updated.id, ...updated.data() });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
+    }
+};
+
+export const getMyCourses = async (req: Request, res: Response) => {
+    try {
+        const currentUser = getAuthenticatedUser(req);
+        if (!currentUser?.uid) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+        if (currentUser.role && currentUser.role !== 'student') {
+            return res.status(403).json({ error: 'Forbidden: Student access only.' });
+        }
+
+        const enrollmentSnap = await db.collection('enrollments').where('studentId', '==', currentUser.uid).get();
+        const courseIds = Array.from(new Set(enrollmentSnap.docs.map((doc) => String(doc.data().courseId || '')))).filter(Boolean);
+        if (courseIds.length === 0) {
+            return res.json([]);
+        }
+
+        const [coursesSnap, facultySnap] = await Promise.all([
+            db.collection('courses').get(),
+            db.collection('users').where('role', '==', 'faculty').get()
+        ]);
+        const courseMap = Object.fromEntries(coursesSnap.docs.map((doc) => [doc.id, doc.data()]));
+        const facultyMap = Object.fromEntries(facultySnap.docs.map((doc) => [doc.id, doc.data()]));
+
+        const sessions: any[] = [];
+        for (let i = 0; i < courseIds.length; i += 30) {
+            const chunk = courseIds.slice(i, i + 30);
+            const sessionSnap = await db.collection('sessions').where('courseId', 'in', chunk).get();
+            sessionSnap.docs.forEach((doc) => sessions.push({ id: doc.id, ...doc.data() }));
+        }
+
+        const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'Unscheduled'];
+        const rows = sessions.map((session) => {
+            const course = courseMap[session.courseId] as { name?: string; facultyId?: string } | undefined;
+            const faculty = facultyMap[session.facultyId || course?.facultyId] as { name?: string } | undefined;
+            const day = session.day
+                ? String(session.day)
+                : session.date
+                    ? new Date(session.date).toLocaleDateString('en-US', { weekday: 'long' })
+                    : 'Unscheduled';
+            const startTime = String(session.startTime || session.start_time || '');
+            const endTime = String(session.endTime || session.end_time || '');
+            return {
+                courseId: String(session.courseId),
+                courseName: String(course?.name || session.courseName || 'Unknown Course'),
+                instructorName: String(faculty?.name || 'Unknown Instructor'),
+                day,
+                time: startTime && endTime ? `${startTime} - ${endTime}` : 'TBD'
+            };
+        });
+
+        const deduped = Array.from(new Map(rows.map((r) => [`${r.courseId}-${r.day}-${r.time}`, r])).values());
+        deduped.sort((a, b) => {
+            const dayDiff = dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day);
+            if (dayDiff !== 0) return dayDiff;
+            return a.time.localeCompare(b.time);
+        });
+
+        return res.json(deduped);
+    } catch (error: any) {
+        return res.status(500).json({ error: error.message });
     }
 };

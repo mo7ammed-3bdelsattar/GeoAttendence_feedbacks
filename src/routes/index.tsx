@@ -10,7 +10,7 @@ import { StudentHomePage } from '../pages/student/StudentHomePage.tsx';
 import { StudentProfilePage } from '../pages/student/StudentProfilePage.tsx';
 import { StudentFeedbackPage } from '../pages/student/StudentFeedbackPage.tsx';
 import { StudentSessionsPage } from '../pages/student/StudentSessionsPage.tsx';
-import { AttendanceSummaryPage } from '../pages/faculty/AttendanceSummaryPage.tsx';
+import { StudentSchedulePage } from '../pages/student/StudentSchedulePage.tsx';
 
 import { AdminOverviewPage } from '../pages/admin/AdminOverviewPage.tsx';
 import { AdminUsersPage } from '../pages/admin/AdminUsersPage.tsx';
@@ -23,15 +23,21 @@ import { AdminSessionsPage } from '../pages/admin/AdminSessionsPage.tsx';
 import { AdminFeedbackAuditPage } from '../pages/admin/AdminFeedbackAuditPage.tsx';
 import { FacultySessionsPage } from '../pages/faculty/FacultySessionsPage.tsx';
 import { FacultyFeedbackPage } from '../pages/faculty/FacultyFeedbackPage.tsx';
+import { AttendanceSummaryPage } from '../pages/faculty/AttendanceSummaryPage.tsx';
 import { RoleGuard } from '../components/RoleGuard.tsx';
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: UserRole[] }) {
   const user = useAuthStore((s) => s.user);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const hasToken = !!getAccessToken();
 
   if (!isAuthenticated || !user || !hasToken) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+    const base = user.role === 'student' ? '/student' : user.role === 'faculty' ? '/faculty' : '/admin';
+    return <Navigate to={base} replace />;
   }
 
   return <>{children}</>;
@@ -86,13 +92,11 @@ export const router = createBrowserRouter([
   },
   {
     path: '/student/sessions',
-    element: (
-      <ProtectedRoute>
-        <RoleGuard requiredRole="student" screen="Student Sessions">
-          <StudentSessionsPage />
-        </RoleGuard>
-      </ProtectedRoute>
-    ),
+    element: <ProtectedRoute allowedRoles={['student']}><StudentSessionsPage /></ProtectedRoute>,
+  },
+  {
+    path: '/student/schedule',
+    element: <ProtectedRoute allowedRoles={['student']}><StudentSchedulePage /></ProtectedRoute>,
   },
 
   {

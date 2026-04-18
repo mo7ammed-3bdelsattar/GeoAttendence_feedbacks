@@ -1,6 +1,46 @@
 import { Request, Response } from 'express';
 import { db } from '../config/firebase-admin';
 
+type StudentScheduleRow = {
+    courseId: string;
+    courseName: string;
+    instructorName: string;
+    day: string;
+    time: string;
+};
+
+const DAY_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+function toMinutes(time: string): number {
+    const [h, m] = time.split(':').map(Number);
+    if (Number.isNaN(h) || Number.isNaN(m)) return Number.MAX_SAFE_INTEGER;
+    return h * 60 + m;
+}
+
+function resolveDayLabel(session: any): string {
+    if (typeof session.day === 'string' && session.day.trim()) return session.day.trim();
+    if (typeof session.date === 'string' && session.date.trim()) {
+        const d = new Date(session.date);
+        if (!Number.isNaN(d.getTime())) {
+            return d.toLocaleDateString('en-US', { weekday: 'long' });
+        }
+    }
+    return 'Unscheduled';
+}
+
+function sortScheduleRows(rows: StudentScheduleRow[]): StudentScheduleRow[] {
+    return [...rows].sort((a, b) => {
+        const dayDiff = DAY_ORDER.indexOf(a.day) - DAY_ORDER.indexOf(b.day);
+        if (dayDiff !== 0) return dayDiff;
+
+        const aStart = toMinutes(a.time.split(' - ')[0] ?? '');
+        const bStart = toMinutes(b.time.split(' - ')[0] ?? '');
+        if (aStart !== bStart) return aStart - bStart;
+
+        return a.courseName.localeCompare(b.courseName);
+    });
+}
+
 /**
  * Controller for Student Schedule Management
  */
@@ -153,6 +193,58 @@ export const studentScheduleController = {
     }
 };
 
+export const getMySchedule = async (req: Request, res: Response) => {
+    try {
+        const currentUser = (req as any).currentUser as { uid?: string; role?: string } | undefined;
+        const studentId = currentUser?.uid;
+        if (!studentId) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        const enrollSnap = await db.collection('enrollments').where('studentId', '==', studentId).get();
+        const courseIds = Array.from(new Set(enrollSnap.docs.map((doc) => String(doc.data().courseId || '')))).filter(Boolean);
+        if (courseIds.length === 0) {
+            return res.json([]);
+        }
+
+        const [coursesSnap, usersSnap] = await Promise.all([
+            db.collection('courses').get(),
+            db.collection('users').where('role', '==', 'faculty').get()
+        ]);
+        const coursesMap = Object.fromEntries(coursesSnap.docs.map((doc) => [doc.id, doc.data()]));
+        const instructorsMap = Object.fromEntries(usersSnap.docs.map((doc) => [doc.id, doc.data()]));
+
+        const sessions: any[] = [];
+        for (let i = 0; i < courseIds.length; i += 30) {
+            const chunk = courseIds.slice(i, i + 30);
+            const sessionSnap = await db.collection('sessions').where('courseId', 'in', chunk).get();
+            sessionSnap.docs.forEach((doc) => sessions.push({ id: doc.id, ...doc.data() }));
+        }
+
+        const rows: StudentScheduleRow[] = sessions.map((session) => {
+            const course = coursesMap[session.courseId] as { name?: string; facultyId?: string } | undefined;
+            const instructor = instructorsMap[session.facultyId || course?.facultyId] as { name?: string } | undefined;
+            const startTime = session.startTime || session.start_time || '';
+            const endTime = session.endTime || session.end_time || '';
+
+            return {
+                courseId: String(session.courseId || ''),
+                courseName: String(course?.name || session.courseName || 'Unknown Course'),
+                instructorName: String(instructor?.name || 'Unknown Instructor'),
+                day: resolveDayLabel(session),
+                time: startTime && endTime ? `${startTime} - ${endTime}` : 'TBD'
+            };
+        });
+
+        const deduped = Array.from(
+            new Map(rows.map((row) => [`${row.courseId}-${row.day}-${row.time}`, row])).values()
+        );
+        return res.json(sortScheduleRows(deduped));
+    } catch (error: any) {
+        return res.status(500).json({ error: 'Failed to load schedule.', message: error.message });
+    }
+};
+
 export const getStudentCourses = async (req: Request, res: Response) => {
     try {
         const { studentId } = req.params;
@@ -191,6 +283,8 @@ export const getStudentDashboard = async (req: Request, res: Response) => {
 
     try {
         const { studentId } = req.params;
+        console.log(`[DASHBOARD] Fetching for studentId: ${studentId}`);
+        
         if (!studentId) {
             return res.status(200).json(emptyPayload);
         }
@@ -200,11 +294,20 @@ export const getStudentDashboard = async (req: Request, res: Response) => {
             .get();
 
         const courseIds = Array.from(new Set(enrollSnap.docs.map((doc) => doc.data().courseId)));
+        console.log(`[DASHBOARD] Found ${courseIds.length} enrolled courses for ${studentId}:`, courseIds);
+
         if (courseIds.length === 0) {
-            const feedbackSnapshot = await db.collection('feedback').where('studentId', '==', studentId).get();
+            const [feedbackCamelCaseSnapshot, feedbackSnakeCaseSnapshot] = await Promise.all([
+                db.collection('feedback').where('studentId', '==', studentId).get(),
+                db.collection('feedback').where('student_id', '==', studentId).get()
+            ]);
+            const feedbackIds = new Set([
+                ...feedbackCamelCaseSnapshot.docs.map((doc) => doc.id),
+                ...feedbackSnakeCaseSnapshot.docs.map((doc) => doc.id)
+            ]);
             return res.status(200).json({
                 ...emptyPayload,
-                feedbackCount: feedbackSnapshot.size
+                feedbackCount: feedbackIds.size
             });
         }
 
@@ -226,11 +329,18 @@ export const getStudentDashboard = async (req: Request, res: Response) => {
             courseName: session.courseName || courseMap[session.courseId]?.name || 'Unknown Course'
         }));
 
-        const feedbackSnapshot = await db.collection('feedback').where('studentId', '==', studentId).get();
+        const [feedbackCamelCaseSnapshot, feedbackSnakeCaseSnapshot] = await Promise.all([
+            db.collection('feedback').where('studentId', '==', studentId).get(),
+            db.collection('feedback').where('student_id', '==', studentId).get()
+        ]);
+        const feedbackIds = new Set([
+            ...feedbackCamelCaseSnapshot.docs.map((doc) => doc.id),
+            ...feedbackSnakeCaseSnapshot.docs.map((doc) => doc.id)
+        ]);
         return res.status(200).json({
             courses,
             sessions: normalizedSessions,
-            feedbackCount: feedbackSnapshot.size
+            feedbackCount: feedbackIds.size
         });
     } catch (error: any) {
         console.error('[student dashboard] failed:', error?.message || error);

@@ -19,28 +19,21 @@ const api: AxiosInstance = axios.create({
   },
 });
 
-function getApiMessage(error: any, fallback: string): string {
-  const code = error?.response?.data?.error;
-  const message = error?.response?.data?.message || error?.response?.data?.error;
-  if (code === 'role_mismatch' || message === 'Role mismatch.') {
-    return 'The selected role does not match your account. Please choose the correct role.';
+api.interceptors.request.use((config) => {
+  const token = getAccessToken();
+  if (token) {
+    config.headers = config.headers ?? {};
+    config.headers.Authorization = `Bearer ${token}`;
   }
-  return message || fallback;
-}
+  return config;
+});
 
-api.interceptors.request.use(
-  (config) => {
-    const token = getAccessToken();
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+const getApiMessage = (error: any, fallback: string) => {
+  return error?.response?.data?.message || error?.response?.data?.error || fallback;
+};
 
 export const authApi = {
-  async login(email: string, password: string, role: UserRole): Promise<User> {
+  async login(email: string, password: string, role: UserRole): Promise<{ user: User; token: string }> {
     try {
       const userCredential = await signInWithEmailAndPassword(clientAuth, email, password);
       const token = await userCredential.user.getIdToken();
@@ -49,20 +42,26 @@ export const authApi = {
       const userData = response.data;
   
       return {
-        id: userData.id,
-        name: userData.name,
-        email: userData.email,
-        role: userData.role
+        user: {
+          id: userData.id,
+          name: userData.name,
+          email: userData.email,
+          role: userData.role
+        },
+        token: userData.token || token
       };
     } catch (error: any) {
       try {
         const response = await api.post('/auth/login', { email, password, role });
         const userData = response.data;
         return {
-          id: userData.id,
-          name: userData.name,
-          email: userData.email,
-          role: userData.role
+          user: {
+            id: userData.id,
+            name: userData.name,
+            email: userData.email,
+            role: userData.role
+          },
+          token: userData.token
         };
       } catch (fallbackError: any) {
         throw new Error(getApiMessage(fallbackError, getApiMessage(error, 'Authentication failed.')));
@@ -161,6 +160,11 @@ export const adminApi = {
   async deleteClassroom(id: string): Promise<void> {
     await api.delete(`/admin/classrooms/${id}`);
   },
+
+  async getOpenCourses(): Promise<Course[]> {
+    const response = await api.get('/admin/courses');
+    return response.data;
+  },
 };
 
 export const enrollmentApi = {
@@ -186,6 +190,10 @@ export const enrollmentApi = {
 
   async unenrollStudent(id: string): Promise<void> {
     await api.delete(`/enrollments/${id}`);
+  },
+
+  async unenrollMyCourse(courseId: string): Promise<void> {
+    await api.delete(`/enrollments/${courseId}`);
   }
 };
 
@@ -202,21 +210,6 @@ export const sessionApi = {
 
   async getSessionsForFaculty(facultyId: string): Promise<Session[]> {
     const response = await api.get(`/sessions/faculty/${facultyId}`);
-    return response.data;
-  },
-
-  async startSession(courseId: string, classroomId: string): Promise<{ sessionId: string }> {
-    const response = await api.post('/sessions/start', { courseId, roomId: classroomId });
-    return response.data;
-  },
-
-  async startSessionById(sessionId: string): Promise<{ sessionId: string }> {
-    const response = await api.post('/sessions/start', { sessionId });
-    return response.data;
-  },
-
-  async endSession(sessionId: string): Promise<{ success: boolean }> {
-    const response = await api.post('/sessions/end', { sessionId });
     return response.data;
   },
 
@@ -246,6 +239,31 @@ export const sessionApi = {
 
   async saveStudentCourses(studentId: string, courseIds: string[]): Promise<void> {
     await api.post('/student/courses', { studentId, courseIds });
+  },
+
+  async startSession(id: string): Promise<{ id: string; status: string; startedAt: string }> {
+    const response = await api.post(`/sessions/${id}/start`);
+    return response.data;
+  },
+
+  async endSession(id: string): Promise<{ id: string; status: string; endedAt: string }> {
+    const response = await api.post(`/sessions/${id}/end`);
+    return response.data;
+  }
+};
+
+export const notificationApi = {
+  async getMyNotifications(): Promise<Array<{
+    id: string;
+    type: string;
+    courseId: string;
+    sessionId: string;
+    title: string;
+    message: string;
+    createdAt: string;
+  }>> {
+    const response = await api.get('/notifications/my');
+    return response.data;
   }
 };
 
@@ -359,6 +377,10 @@ export const feedbackApi = {
   async getFeedbackByStudent(studentId: string): Promise<Feedback[]> {
     const response = await api.get(`/feedback/student/${studentId}`);
     return response.data;
+  },
+
+  async deleteFeedback(id: string): Promise<void> {
+    await api.delete(`/feedback/${id}`);
   }
 };
 
@@ -379,6 +401,28 @@ export const studentApi = {
     feedbackCount: number;
   }> {
     const response = await api.get(`/student/dashboard/${studentId}`);
+    return response.data;
+  },
+
+  async getMySchedule(): Promise<Array<{
+    courseId: string;
+    courseName: string;
+    instructorName: string;
+    day: string;
+    time: string;
+  }>> {
+    const response = await api.get('/student/my-schedule');
+    return response.data;
+  },
+
+  async getMyCourses(): Promise<Array<{
+    courseId: string;
+    courseName: string;
+    instructorName: string;
+    day: string;
+    time: string;
+  }>> {
+    const response = await api.get('/student/my-courses');
     return response.data;
   }
 };

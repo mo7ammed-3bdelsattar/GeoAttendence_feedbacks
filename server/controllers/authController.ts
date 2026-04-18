@@ -36,41 +36,57 @@ export const login = async (req: Request, res: Response) => {
         return res.status(403).json({ error: 'Role mismatch.' });
       }
 
+      const geoToken = `geo-${Buffer.from(JSON.stringify({ sub: uid, role: normalizedUserRole, email: finalEmail })).toString('base64')}.${Date.now()}`;
+
       return res.json({
         id: uid,
         name: userData?.name || finalEmail,
         email: finalEmail,
-        role: normalizedUserRole
+        role: normalizedUserRole,
+        token: geoToken
       });
     } else {
-      // Mock authentication - backward compatibility
-      const mockUsers = {
-        'student@uni.edu': { password: 'password123', role: 'student', name: 'John Student' },
-        'faculty@uni.edu': { password: 'password123', role: 'faculty', name: 'Dr. Jane Faculty' },
-        'admin@uni.edu': { password: 'password123', role: 'admin', name: 'Admin User' },
-        'ahmedaymanmido307@gmail.com': { password: 'password123', role: 'admin', name: 'Ahmed Ayman' },
-      };
-
-      const user = mockUsers[finalEmail as keyof typeof mockUsers];
-      const normalizedUserRole = normalizeRole(user?.role);
-      const normalizedSelectedRole = normalizeRole(role);
-      if (!user || user.password !== password || normalizedUserRole !== normalizedSelectedRole) {
-        console.log('Auth failed:', { user: !!user, passwordMatch: user?.password === password, roleMatch: normalizedUserRole === normalizedSelectedRole, expectedRole: role, userRole: user?.role });
-        return res.status(401).json({ error: 'Invalid credentials' });
+      // 1. Fetch user from Firestore by email
+      console.log(`[AUTH] DB Login attempt for: ${finalEmail}`);
+      const userSnap = await db.collection('users').where('email', '==', finalEmail).limit(1).get();
+      
+      if (userSnap.empty) {
+        console.warn(`[AUTH] User not found: ${finalEmail}`);
+        return res.status(401).json({ error: 'Invalid credentials. User not found.' });
       }
 
-      uid = `mock-${finalEmail}`;
-      await db.collection('users').doc(uid).set({
-        name: user.name,
-        email: finalEmail,
-        role: user.role
-      }, { merge: true });
+      const userDoc = userSnap.docs[0];
+      const userData = userDoc.data();
+      uid = userDoc.id;
+
+      // 2. Verify password from DB
+      if (!userData.password || userData.password !== password) {
+        console.warn(`[AUTH] Password mismatch for: ${finalEmail}`);
+        return res.status(401).json({ error: 'Invalid credentials. Incorrect password.' });
+      }
+
+      // 3. Verify Role
+      const normalizedUserRole = normalizeRole(userData.role);
+      const normalizedSelectedRole = normalizeRole(role);
+
+      if (normalizedUserRole !== normalizedSelectedRole) {
+        return res.status(403).json({ error: `Role mismatch. This account is registered as ${normalizedUserRole}.` });
+      }
+
+      console.log(`[AUTH] Login success for: ${finalEmail} (${normalizedUserRole})`);
+
+      const geoToken = `geo-${Buffer.from(JSON.stringify({ 
+        sub: uid, 
+        role: normalizedUserRole, 
+        email: finalEmail 
+      })).toString('base64')}.${Date.now()}`;
 
       return res.json({
         id: uid,
-        name: user.name,
+        name: userData.name || finalEmail,
         email: finalEmail,
-        role: user.role
+        role: normalizedUserRole,
+        token: geoToken
       });
     }
   } catch (error: any) {

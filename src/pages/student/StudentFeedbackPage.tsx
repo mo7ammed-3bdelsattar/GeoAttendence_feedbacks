@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore.ts';
 import { adminApi, feedbackApi } from '../../services/api.ts';
 import { AppShell } from '../../components/layout/AppShell.tsx';
@@ -9,6 +9,7 @@ import { toast } from 'react-hot-toast';
 import { MessageSquare, Send, CheckCircle } from 'lucide-react';
 
 export function StudentFeedbackPage() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const user = useAuthStore((s) => s.user);
   const [courses, setCourses] = useState<Course[]>([]);
@@ -57,6 +58,9 @@ export function StudentFeedbackPage() {
       });
       toast.success('Feedback submitted successfully!');
       setSubmitted(true);
+      window.setTimeout(() => {
+        navigate('/student', { state: { refreshDashboard: true } });
+      }, 900);
     } catch (error: any) {
       toast.error(error?.response?.data?.error || 'Failed to submit feedback');
     } finally {
