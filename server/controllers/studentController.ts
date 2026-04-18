@@ -283,6 +283,8 @@ export const getStudentDashboard = async (req: Request, res: Response) => {
 
     try {
         const { studentId } = req.params;
+        console.log(`[DASHBOARD] Fetching for studentId: ${studentId}`);
+        
         if (!studentId) {
             return res.status(200).json(emptyPayload);
         }
@@ -292,6 +294,8 @@ export const getStudentDashboard = async (req: Request, res: Response) => {
             .get();
 
         const courseIds = Array.from(new Set(enrollSnap.docs.map((doc) => doc.data().courseId)));
+        console.log(`[DASHBOARD] Found ${courseIds.length} enrolled courses for ${studentId}:`, courseIds);
+
         if (courseIds.length === 0) {
             const [feedbackCamelCaseSnapshot, feedbackSnakeCaseSnapshot] = await Promise.all([
                 db.collection('feedback').where('studentId', '==', studentId).get(),

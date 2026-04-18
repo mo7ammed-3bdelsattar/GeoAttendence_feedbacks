@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import * as userController from '../controllers/userController';
 import * as authController from '../controllers/authController';
 import * as enrollmentController from '../controllers/enrollmentController';
@@ -11,6 +11,7 @@ import * as attendanceController from '../controllers/attendanceController';
 import * as notificationController from '../controllers/notificationController';
 import { getMySchedule, getStudentCourses, getStudentDashboard, studentScheduleController } from '../controllers/studentController';
 import { requireStudentAuth } from '../middleware/authGuard';
+import { requireRole } from '../middleware/requireRole';
 
 const router = Router();
 
@@ -53,7 +54,7 @@ router.patch('/admin/departments/:id', requireRole('admin'), departmentControlle
 router.delete('/admin/departments/:id', requireRole('admin'), departmentController.deleteDepartment);
 
 // Course routes
-router.get('/admin/courses', requireRole(['admin', 'faculty']), courseController.getCourses);
+router.get('/admin/courses', requireRole(['admin', 'faculty', 'student']), courseController.getCourses);
 router.post('/admin/courses', requireRole('admin'), courseController.createCourse);
 router.patch('/admin/courses/:id', requireRole('admin'), courseController.updateCourse);
 router.delete('/admin/courses/:id', requireRole('admin'), courseController.deleteCourse);

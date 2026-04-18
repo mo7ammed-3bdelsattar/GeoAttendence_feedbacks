@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from 'express';
 
 type AuthUser = {
   uid: string;
+  email?: string;
   role?: string;
 };
 
@@ -13,10 +14,11 @@ function decodeLegacyAccessToken(token: string): AuthUser | null {
   try {
     const decoded = JSON.parse(Buffer.from(payloadToken, 'base64').toString('utf8')) as {
       sub?: string;
+      email?: string;
       role?: string;
     };
     if (!decoded?.sub) return null;
-    return { uid: decoded.sub, role: decoded.role };
+    return { uid: decoded.sub, role: decoded.role, email: decoded.email };
   } catch {
     return null;
   }

@@ -8,7 +8,6 @@ import { auth as clientAuth } from '../config/firebase';
 import { getAccessToken } from '../utils/storage.ts';
 import type { Attendance, Classroom, Course, Department, Enrollment, Session, User, UserRole } from '../types/index.ts';
 import type { Feedback } from '../types/feedback.ts';
-import { getAccessToken } from '../utils/storage.ts';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -28,6 +27,10 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+const getApiMessage = (error: any, fallback: string) => {
+  return error?.response?.data?.message || error?.response?.data?.error || fallback;
+};
 
 export const authApi = {
   async login(email: string, password: string, role: UserRole): Promise<{ user: User; token: string }> {
@@ -157,6 +160,11 @@ export const adminApi = {
   async deleteClassroom(id: string): Promise<void> {
     await api.delete(`/admin/classrooms/${id}`);
   },
+
+  async getOpenCourses(): Promise<Course[]> {
+    const response = await api.get('/admin/courses');
+    return response.data;
+  },
 };
 
 export const enrollmentApi = {
@@ -202,21 +210,6 @@ export const sessionApi = {
 
   async getSessionsForFaculty(facultyId: string): Promise<Session[]> {
     const response = await api.get(`/sessions/faculty/${facultyId}`);
-    return response.data;
-  },
-
-  async startSession(courseId: string, classroomId: string): Promise<{ sessionId: string }> {
-    const response = await api.post('/sessions/start', { courseId, roomId: classroomId });
-    return response.data;
-  },
-
-  async startSessionById(sessionId: string): Promise<{ sessionId: string }> {
-    const response = await api.post('/sessions/start', { sessionId });
-    return response.data;
-  },
-
-  async endSession(sessionId: string): Promise<{ success: boolean }> {
-    const response = await api.post('/sessions/end', { sessionId });
     return response.data;
   },
 

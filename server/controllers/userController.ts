@@ -9,7 +9,7 @@ type UserRole = typeof ALLOWED_ROLES[number];
 const normalizeRole = (role?: string): UserRole => {
   if (!role) return 'student';
   const normalized = role.toLowerCase();
-  if (normalized === 'instructor') return 'faculty';
+  if (normalized === 'instructor' || normalized === 'faculty') return 'faculty';
   if (normalized === 'admin') return 'admin';
   return 'student';
 };
@@ -78,6 +78,7 @@ export const createUser = async (req: Request, res: Response) => {
       id: userAuth.uid,
       name,
       email,
+      password,
       role: validatedRole,
     };
 

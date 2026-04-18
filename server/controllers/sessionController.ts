@@ -211,7 +211,11 @@ export const startSessionById = async (req: Request, res: Response) => {
     if (!sessionSnap.exists) return res.status(404).json({ error: 'Session not found.' });
     const session = sessionSnap.data() as SessionDoc;
 
-    if (session.facultyId !== currentUser.uid) {
+    const isOwner = session.facultyId === currentUser.uid || 
+                    (currentUser.email && session.facultyId === currentUser.email) ||
+                    (currentUser.email && session.facultyId === `mock-${currentUser.email}`);
+
+    if (!isOwner) {
       return res.status(403).json({ error: 'Only assigned instructor can start this session.' });
     }
     if (session.status === 'ACTIVE') {
@@ -237,8 +241,11 @@ export const endSessionById = async (req: Request, res: Response) => {
     if (!id) return res.status(400).json({ error: 'Session ID is required.' });
 
     const currentUser = getAuthenticatedUser(req);
+    console.log('[DEBUG] endSessionById - Current User:', currentUser);
+    
     if (!currentUser?.uid) return res.status(401).json({ error: 'Unauthorized' });
     if (currentUser.role && currentUser.role !== 'faculty') {
+      console.warn('[DEBUG] Role mismatch:', { userRole: currentUser.role, expected: 'faculty' });
       return res.status(403).json({ error: 'Forbidden: Faculty access only.' });
     }
 
@@ -247,7 +254,12 @@ export const endSessionById = async (req: Request, res: Response) => {
     if (!sessionSnap.exists) return res.status(404).json({ error: 'Session not found.' });
     const session = sessionSnap.data() as SessionDoc;
 
-    if (session.facultyId !== currentUser.uid) {
+    const isOwner = session.facultyId === currentUser.uid || 
+                    (currentUser.email && session.facultyId === currentUser.email) ||
+                    (currentUser.email && session.facultyId === `mock-${currentUser.email}`);
+
+    if (!isOwner) {
+      console.warn('[AUTH] Ownership mismatch:', { sessionFacultyId: session.facultyId, currentUserUid: currentUser.uid, currentUserEmail: currentUser.email });
       return res.status(403).json({ error: 'Only assigned instructor can end this session.' });
     }
     if (session.status !== 'ACTIVE') {

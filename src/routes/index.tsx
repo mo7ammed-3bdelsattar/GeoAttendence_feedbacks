@@ -23,15 +23,21 @@ import { AdminSessionsPage } from '../pages/admin/AdminSessionsPage.tsx';
 import { AdminFeedbackAuditPage } from '../pages/admin/AdminFeedbackAuditPage.tsx';
 import { FacultySessionsPage } from '../pages/faculty/FacultySessionsPage.tsx';
 import { FacultyFeedbackPage } from '../pages/faculty/FacultyFeedbackPage.tsx';
+import { AttendanceSummaryPage } from '../pages/faculty/AttendanceSummaryPage.tsx';
 import { RoleGuard } from '../components/RoleGuard.tsx';
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: UserRole[] }) {
   const user = useAuthStore((s) => s.user);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const hasToken = !!getAccessToken();
 
   if (!isAuthenticated || !user || !hasToken) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+    const base = user.role === 'student' ? '/student' : user.role === 'faculty' ? '/faculty' : '/admin';
+    return <Navigate to={base} replace />;
   }
 
   return <>{children}</>;

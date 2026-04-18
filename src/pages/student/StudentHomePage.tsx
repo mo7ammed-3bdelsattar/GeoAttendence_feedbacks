@@ -10,7 +10,6 @@ import { StatsCards } from '../../components/student-dashboard/StatsCards.tsx';
 import { SessionsList, type StudentSessionItem } from '../../components/student-dashboard/SessionsList.tsx';
 import { CoursesList } from '../../components/student-dashboard/CoursesList.tsx';
 import { FeedbackSection } from '../../components/student-dashboard/FeedbackSection.tsx';
-import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton.tsx';
 
 export function StudentHomePage() {
   const navigate = useNavigate();
@@ -278,7 +277,6 @@ export function StudentHomePage() {
           />
           <FeedbackSection pendingCourses={pendingFeedbackCourses} />
         </div>
-      )}
     </AppShell>
   );
 }

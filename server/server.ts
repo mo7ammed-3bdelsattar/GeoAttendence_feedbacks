@@ -46,10 +46,29 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 });
 
 const HOST = '0.0.0.0';
+import os from 'os';
+
+const getLocalIP = () => {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]!) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return 'localhost';
+};
+
+app.get('/api/health', (req: Request, res: Response) => {
+  res.json({ status: 'ok', timestamp: new Date(), ip: getLocalIP() });
+});
 
 app.listen(Number(PORT), HOST, () => {
+  const localIP = getLocalIP();
   console.log(`[SERVER] Node backend running on http://${HOST}:${PORT}`);
-  console.log(`[SERVER] Accessible on your network at http://192.168.1.185:${PORT}`);
+  console.log(`[SERVER] Accessible on your network at http://${localIP}:${PORT}`);
+  console.log(`[SERVER] Health Check: http://${localIP}:${PORT}/api/health`);
   console.log(`[SERVER] Environment: ${process.env.NODE_ENV}`);
   initNotificationCron();
 });
