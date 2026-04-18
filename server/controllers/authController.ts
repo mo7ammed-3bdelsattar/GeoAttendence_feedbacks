@@ -60,6 +60,8 @@ export const login = async (req: Request, res: Response) => {
       }
 
       uid = `mock-${finalEmail}`;
+      const geoToken = `geo-${Buffer.from(JSON.stringify({ sub: uid, role: user.role, email: finalEmail })).toString('base64')}.${Date.now()}`;
+
       await db.collection('users').doc(uid).set({
         name: user.name,
         email: finalEmail,
@@ -70,7 +72,8 @@ export const login = async (req: Request, res: Response) => {
         id: uid,
         name: user.name,
         email: finalEmail,
-        role: user.role
+        role: user.role,
+        token: geoToken
       });
     }
   } catch (error: any) {

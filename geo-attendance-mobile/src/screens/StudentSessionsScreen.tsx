@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl, TouchableOpacity, Alert, Modal } from 'react-native';
-import { BarCodeScanner } from 'expo-barcode-scanner';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import Colors from '../theme/colors';
 import Typography from '../theme/typography';
 import { useAuth } from '../context/AuthContext';
 import { studentApi, attendanceApi } from '../services/api';
-import type { Session } from '../types';
+import { type Session } from '../types';
 
 const StudentSessionsScreen: React.FC = () => {
   const { user } = useAuth();
@@ -17,7 +17,7 @@ const StudentSessionsScreen: React.FC = () => {
   const [scannerVisible, setScannerVisible] = useState(false);
   const [scannerMode, setScannerMode] = useState<'checkin' | 'checkout' | null>(null);
   const [scannerSessionId, setScannerSessionId] = useState<string | null>(null);
-  const [cameraPermission, setCameraPermission] = useState<boolean | null>(null);
+  const [permission, requestPermission] = useCameraPermissions();
   const [checkedInSessions, setCheckedInSessions] = useState<Record<string, boolean>>({});
 
   const fetchSessions = async () => {
@@ -37,17 +37,7 @@ const StudentSessionsScreen: React.FC = () => {
     fetchSessions();
   }, [user]);
 
-  useEffect(() => {
-    if (!scannerVisible) return;
-
-    (async () => {
-      const { status } = await BarCodeScanner.requestPermissionsAsync();
-      setCameraPermission(status === 'granted');
-      if (status !== 'granted') {
-        Alert.alert('Camera permission required', 'Please allow camera access to scan QR codes.');
-      }
-    })();
-  }, [scannerVisible]);
+  // Permission handling moved to useCameraPermissions hook
 
   const handleMarkAttendance = async (sessionId: string) => {
     if (!user) return;
@@ -87,7 +77,14 @@ const StudentSessionsScreen: React.FC = () => {
     }
   };
 
-  const openScanner = (sessionId: string, mode: 'checkin' | 'checkout') => {
+  const openScanner = async (sessionId: string, mode: 'checkin' | 'checkout') => {
+    if (!permission?.granted) {
+      const result = await requestPermission();
+      if (!result.granted) {
+        Alert.alert('Camera permission required', 'Please allow camera access to scan QR codes.');
+        return;
+      }
+    }
     setScannerSessionId(sessionId);
     setScannerMode(mode);
     setScannerVisible(true);
@@ -105,7 +102,7 @@ const StudentSessionsScreen: React.FC = () => {
       return;
     }
 
-    if (!cameraPermission) {
+    if (!permission?.granted) {
       Alert.alert('Camera permission denied', 'Cannot scan without camera permission.');
       closeScanner();
       return;
@@ -228,10 +225,16 @@ const StudentSessionsScreen: React.FC = () => {
           <View style={styles.scannerContainer}>
             <Text style={styles.scannerTitle}>{scannerMode === 'checkout' ? 'Scan QR to Check Out' : 'Scan QR to Check In'}</Text>
             <View style={styles.scannerBox}>
-              {cameraPermission === false ? (
+              {!permission?.granted ? (
                 <Text style={styles.detailText}>Camera access is required to scan the session QR code.</Text>
               ) : (
-                <BarCodeScanner onBarCodeScanned={handleBarCodeScanned} style={StyleSheet.absoluteFillObject} />
+                <CameraView 
+                  onBarcodeScanned={handleBarCodeScanned} 
+                  barcodeScannerSettings={{
+                    barcodeTypes: ['qr'],
+                  }}
+                  style={StyleSheet.absoluteFillObject} 
+                />
               )}
             </View>
             <TouchableOpacity style={styles.scannerClose} onPress={closeScanner}>

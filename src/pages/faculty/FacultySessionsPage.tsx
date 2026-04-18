@@ -61,25 +61,20 @@ export function FacultySessionsPage() {
 
     setLoading(true);
     try {
-      // First try to get sessions specifically for this faculty
-      const sessionData = await sessionApi.getSessions({ facultyId: user.id });
-      const courseData = await adminApi.getCourses();
-      const classroomData = await adminApi.getClassrooms();
+      // Backend now enriches sessions with course/faculty/classroom objects
+      const sessionData = await sessionApi.getSessionsForFaculty(user.id);
 
-      const mapped = sessionData.map((session) => {
-        const course = courseData.find((item) => item.id === session.courseId);
-        const classroom = classroomData.find((item) => item.id === session.classroomId);
-        return {
-          ...session,
-          courseName: course?.name ?? session.courseName ?? 'Unknown Course',
-          courseCode: course?.code ?? 'N/A',
-          classroomName: classroom?.name ?? session.classroomName ?? 'Unknown Classroom'
-        };
-      });
+      const mapped = sessionData.map((session: any) => ({
+        ...session,
+        // Support both enriched nested objects and legacy flat fields
+        courseName:    session.course?.name      ?? session.courseName    ?? 'Unknown Course',
+        courseCode:    session.course?.code      ?? session.courseCode    ?? 'N/A',
+        classroomName: session.classroom?.name   ?? session.classroomName ?? 'Unknown Classroom',
+      }));
 
       setSessions(mapped);
-      
-      // Try to get attendance summary
+
+      // Attendance summary
       try {
         const attendance = await attendanceApi.getFacultyAttendanceSummary(user.id);
         setAttendanceSummary(

@@ -51,42 +51,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setFirebaseUser(fbUser);
       if (fbUser) {
         try {
+          // 1. Try to recover user data from storage immediately for better UX
+          const storedUser = await AsyncStorage.getItem('userData');
+          if (storedUser) {
+            try {
+              setUser(JSON.parse(storedUser));
+            } catch (e) {
+              console.warn('[AUTH] Corrupt storage cleared');
+              await AsyncStorage.removeItem('userData');
+            }
+          }
+
+          // 2. Fetch fresh data from Firestore
           const userDoc = await getDoc(doc(db, 'users', fbUser.uid));
           if (userDoc.exists()) {
             const data = userDoc.data();
             const role = normalizeBackendRole(String(data.role));
-            setUser({
+            const appUser: AppUser = {
               id: fbUser.uid,
               uid: fbUser.uid,
               email: fbUser.email,
               name: data.name || fbUser.displayName || fbUser.email?.split('@')[0] || 'User',
               role,
-            });
+            };
+            setUser(appUser);
+            await AsyncStorage.setItem('userData', JSON.stringify(appUser));
           } else {
-            // Fallback: If user doc is not in firestore, use the pending role from login screen
-            setUser({
+            // Fallback: If user doc is not in firestore, use the pending role or stored role
+            const currentRole = pendingRole || (JSON.parse(storedUser || '{}') as AppUser).role || 'student';
+            const fallbackUser: AppUser = {
               id: fbUser.uid,
               uid: fbUser.uid,
               email: fbUser.email,
               name: fbUser.displayName || fbUser.email?.split('@')[0] || 'User',
-              role: pendingRole || 'student',
-            });
+              role: currentRole as any,
+            };
+            setUser(fallbackUser);
           }
           const idToken = await fbUser.getIdToken();
           await AsyncStorage.setItem('userToken', idToken);
-        } catch {
-          // Fallback on error
-          setUser({
-            id: fbUser.uid,
-            uid: fbUser.uid,
-            email: fbUser.email,
-            name: fbUser.displayName || fbUser.email?.split('@')[0] || 'User',
-            role: pendingRole || 'student',
-          });
+        } catch (error) {
+          console.error('[AUTH] refresh failed:', error);
         }
       } else {
         setUser(null);
         await AsyncStorage.removeItem('userToken');
+        await AsyncStorage.removeItem('userData');
       }
       setLoading(false);
     });
@@ -96,25 +106,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const login = async (email: string, password: string, role?: UserRole) => {
     if (role) setPendingRole(role);
-    const credential = await signInWithEmailAndPassword(auth, email, password);
-
-    const userDoc = await getDoc(doc(db, 'users', credential.user.uid));
-    if (userDoc.exists()) {
-      const actualRole = normalizeBackendRole(String(userDoc.data()?.role));
-      const selectedRole = role || 'student';
-      if (selectedRole !== actualRole) {
-        await signOut(auth);
-        throw new Error('RoleMismatch');
+    const normalizedEmail = email.trim();
+    
+    try {
+      // 1. Try Firebase Auth (Real Users)
+      const credential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
+      
+      const userDoc = await getDoc(doc(db, 'users', credential.user.uid));
+      if (userDoc.exists()) {
+        const actualRole = normalizeBackendRole(String(userDoc.data()?.role));
+        const selectedRole = role || 'student';
+        if (selectedRole !== actualRole) {
+          await signOut(auth);
+          throw new Error('RoleMismatch');
+        }
+      }
+      
+      const idToken = await credential.user.getIdToken();
+      await AsyncStorage.setItem('userToken', idToken);
+      // user state is updated via onAuthStateChanged
+    } catch (firebaseErr: any) {
+      // 2. Fallback to Backend Login (Mock Users / Legacy)
+      try {
+        const { authApi } = require('../services/api');
+        const loginData = await authApi.login(normalizedEmail, password, (role || 'student') as any);
+        const { user: backendUser, token: backendToken } = loginData;
+        
+        const mockUser: AppUser = {
+          id: backendUser.id,
+          uid: backendUser.id,
+          email: backendUser.email,
+          name: backendUser.name,
+          role: normalizeBackendRole(backendUser.role),
+        };
+        
+        setUser(mockUser);
+        if (backendToken) {
+          await AsyncStorage.setItem('userToken', backendToken);
+          await AsyncStorage.setItem('userData', JSON.stringify(mockUser));
+        }
+      } catch (backendErr: any) {
+        // If both fail, throw the most relevant error
+        if (firebaseErr.message === 'RoleMismatch') throw firebaseErr;
+        throw backendErr;
       }
     }
-
-    const idToken = await credential.user.getIdToken();
-    await AsyncStorage.setItem('userToken', idToken);
-    // User state is updated automatically via onAuthStateChanged
   };
 
   const logout = async () => {
     await AsyncStorage.removeItem('userToken');
+    await AsyncStorage.removeItem('userData');
     await signOut(auth);
   };
 

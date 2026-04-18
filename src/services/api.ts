@@ -40,7 +40,7 @@ api.interceptors.request.use(
 );
 
 export const authApi = {
-  async login(email: string, password: string, role: UserRole): Promise<User> {
+  async login(email: string, password: string, role: UserRole): Promise<{ user: User; token: string }> {
     try {
       const userCredential = await signInWithEmailAndPassword(clientAuth, email, password);
       const token = await userCredential.user.getIdToken();
@@ -49,20 +49,26 @@ export const authApi = {
       const userData = response.data;
   
       return {
-        id: userData.id,
-        name: userData.name,
-        email: userData.email,
-        role: userData.role
+        user: {
+          id: userData.id,
+          name: userData.name,
+          email: userData.email,
+          role: userData.role
+        },
+        token: userData.token || token
       };
     } catch (error: any) {
       try {
         const response = await api.post('/auth/login', { email, password, role });
         const userData = response.data;
         return {
-          id: userData.id,
-          name: userData.name,
-          email: userData.email,
-          role: userData.role
+          user: {
+            id: userData.id,
+            name: userData.name,
+            email: userData.email,
+            role: userData.role
+          },
+          token: userData.token
         };
       } catch (fallbackError: any) {
         throw new Error(getApiMessage(fallbackError, getApiMessage(error, 'Authentication failed.')));

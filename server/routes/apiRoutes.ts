@@ -43,6 +43,9 @@ router.get('/admin/users', requireRole('admin'), userController.getUsers);
 router.post('/admin/users', requireRole('admin'), userController.createUser);
 router.patch('/admin/users/:id', requireRole('admin'), userController.updateUser);
 router.delete('/admin/users/:id', requireRole('admin'), userController.deleteUser);
+router.patch('/users/:id/push-token', userController.updatePushToken);
+router.post('/admin/test-notifications', requireRole('admin'), userController.testNotifications);
+
 
 // Department routes
 router.get('/admin/departments', requireRole('admin'), departmentController.getDepartments);
@@ -51,13 +54,13 @@ router.patch('/admin/departments/:id', requireRole('admin'), departmentControlle
 router.delete('/admin/departments/:id', requireRole('admin'), departmentController.deleteDepartment);
 
 // Course routes
-router.get('/admin/courses', requireRole('admin'), courseController.getCourses);
+router.get('/admin/courses', requireRole(['admin', 'faculty']), courseController.getCourses);
 router.post('/admin/courses', requireRole('admin'), courseController.createCourse);
 router.patch('/admin/courses/:id', requireRole('admin'), courseController.updateCourse);
 router.delete('/admin/courses/:id', requireRole('admin'), courseController.deleteCourse);
 
 // Classroom routes
-router.get('/admin/classrooms', requireRole('admin'), classroomController.getClassrooms);
+router.get('/admin/classrooms', requireRole(['admin', 'faculty']), classroomController.getClassrooms);
 router.post('/admin/classrooms', requireRole('admin'), classroomController.createClassroom);
 router.patch('/admin/classrooms/:id', requireRole('admin'), classroomController.updateClassroom);
 router.delete('/admin/classrooms/:id', requireRole('admin'), classroomController.deleteClassroom);

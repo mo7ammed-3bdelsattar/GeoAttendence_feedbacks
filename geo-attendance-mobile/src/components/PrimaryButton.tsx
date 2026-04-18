@@ -7,6 +7,7 @@ import {
   ViewStyle,
   TextStyle,
   View,
+  Platform,
 } from 'react-native';
 import Colors from '../theme/colors';
 import { BorderRadius, Spacing } from '../theme/typography';
@@ -83,11 +84,20 @@ const styles = StyleSheet.create({
   },
   primary: {
     backgroundColor: Colors.primary,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.4,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 8,
+      },
+      web: {
+        boxShadow: `0 8px 16px ${Colors.primary}66`,
+      },
+    }),
   },
   secondary: {
     backgroundColor: 'transparent',
@@ -99,8 +109,11 @@ const styles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.5,
-    shadowOpacity: 0,
-    elevation: 0,
+    ...Platform.select({
+      ios: { shadowOpacity: 0 },
+      android: { elevation: 0 },
+      web: { boxShadow: 'none' },
+    }),
   },
   content: {
     flexDirection: 'row',

@@ -174,7 +174,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         {/* Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            Geo-Attendance Management System
+            CREATED BY MOHAMMED ABDUL SATTAR
           </Text>
           <Text style={styles.footerVersion}>v1.0.0</Text>
         </View>

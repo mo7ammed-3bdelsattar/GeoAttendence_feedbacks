@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import admin, { db, auth as adminAuth } from '../config/firebase-admin';
+import { sendUpcomingSessionNotifications } from '../utils/notificationCron';
 
 const ALLOWED_ROLES = ['student', 'faculty', 'admin'] as const;
 
@@ -119,3 +120,33 @@ export const deleteUser = async (req: Request, res: Response) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+export const updatePushToken = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { pushToken } = req.body;
+
+    if (!pushToken) {
+      return res.status(400).json({ error: 'pushToken is required' });
+    }
+
+    const userId = String(id);
+    await db.collection('users').doc(userId).update({ pushToken });
+
+    res.json({ success: true, pushToken });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const testNotifications = async (req: Request, res: Response) => {
+  try {
+    const { minutes } = req.body;
+    await sendUpcomingSessionNotifications(minutes || 15);
+    res.json({ success: true, message: 'Notification sweep triggered' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+

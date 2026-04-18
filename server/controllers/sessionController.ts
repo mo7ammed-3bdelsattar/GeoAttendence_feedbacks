@@ -51,22 +51,72 @@ async function hasClassroomConflict(
   });
 }
 
+// ── Shared helper: attach course / faculty / classroom info to sessions ──
+async function enrichSessions(rawDocs: admin.firestore.QueryDocumentSnapshot[]) {
+  try {
+    if (rawDocs.length === 0) return [];
+    
+    // Collect unique IDs
+    const courseIds   = [...new Set(rawDocs.map(d => d.data().courseId).filter(id => !!id && typeof id === 'string'))];
+    const facultyIds  = [...new Set(rawDocs.map(d => d.data().facultyId).filter(id => !!id && typeof id === 'string'))];
+    const classroomIds= [...new Set(rawDocs.map(d => d.data().classroomId).filter(id => !!id && typeof id === 'string'))];
+
+    // Fetch all referenced docs in parallel
+    const [courseDocs, facultyDocs, classroomDocs] = await Promise.all([
+      courseIds.length   ? db.getAll(...courseIds.map(id   => db.collection('courses').doc(id)))    : Promise.resolve([]),
+      facultyIds.length  ? db.getAll(...facultyIds.map(id  => db.collection('users').doc(id)))      : Promise.resolve([]),
+      classroomIds.length? db.getAll(...classroomIds.map(id=> db.collection('classrooms').doc(id))) : Promise.resolve([]),
+    ]);
+
+    const courseMap    = Object.fromEntries(courseDocs.map(d    => [d.id, d.exists ? { id: d.id, ...(d.data() as any) } : null]));
+    const facultyMap   = Object.fromEntries(facultyDocs.map(d   => [d.id, d.exists ? { id: d.id, ...(d.data() as any) } : null]));
+    const classroomMap = Object.fromEntries(classroomDocs.map(d => [d.id, d.exists ? { id: d.id, ...(d.data() as any) } : null]));
+
+    return rawDocs.map(doc => {
+      const data = doc.data() as any;
+      
+      // Safety Check: A session is ONLY active if:
+      // 1. Its status is 'active' in DB
+      // 2. AND its date is Today (or missing/invalid date treated carefully)
+      const todayStr = new Date().toISOString().split('T')[0];
+      const sessionDate = data.date ? (typeof data.date === 'string' ? data.date.split('T')[0] : '') : '';
+      
+      const isDateToday = sessionDate === todayStr;
+      const isActiveInDb = data.isActive === true || data.status === 'active';
+      
+      return {
+        id: doc.id,
+        ...data,
+        isActive: isActiveInDb && isDateToday, // Must be both
+        course:    courseMap[data.courseId]    || null,
+        faculty:   facultyMap[data.facultyId]  || null,
+        classroom: classroomMap[data.classroomId] || null,
+      };
+    });
+  } catch (err) {
+    console.error('[ENRICH_SESSIONS_ERROR]', err);
+    // Fallback to raw data if enrichment fails
+    return rawDocs.map(doc => ({ id: doc.id, ...doc.data() as any }));
+  }
+}
+
 export const getSessions = async (req: Request, res: Response) => {
   try {
     const { courseId, facultyId } = req.query;
+    console.log(`[API] getSessions - Query:`, { courseId, facultyId });
+    
     let q: admin.firestore.Query = db.collection('sessions');
 
-    if (courseId) q = q.where('courseId', '==', courseId);
+    if (courseId)  q = q.where('courseId',  '==', courseId);
     if (facultyId) q = q.where('facultyId', '==', facultyId);
 
     const snapshot = await q.get();
-    const sessions = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    console.log(`[API] getSessions - Found ${snapshot.size} sessions.`);
+    const sessions = await enrichSessions(snapshot.docs);
 
     res.json(sessions);
   } catch (error: any) {
+    console.error(`[API] getSessions Error:`, error);
     res.status(500).json({ error: error.message, message: 'Unable to fetch sessions.' });
   }
 };
@@ -171,18 +221,35 @@ export const updateSession = async (req: Request, res: Response) => {
 export const getSessionsByFaculty = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    if (!id) {
-      return res.status(400).json({ error: 'faculty id is required.' });
+    if (!id) return res.status(400).json({ error: 'faculty id is required.' });
+
+    console.log(`[API] getSessionsByFaculty - Checking for user: ${id}`);
+    
+    // 1. Get user profile to find their email
+    const userDoc = await db.collection('users').doc(id).get();
+    const userData = userDoc.exists ? (userDoc.data() as any) : null;
+    const email = userData?.email;
+
+    // 2. Build multi-format IDs to search for (Legacy support)
+    const possibleIds = [id];
+    if (email) {
+      possibleIds.push(email);
+      possibleIds.push(`mock-${email}`);
     }
 
-    const snapshot = await db.collection('sessions').where('facultyId', '==', id).get();
-    const sessions = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    console.log(`[API] getSessionsByFaculty - Searching formats:`, possibleIds);
 
+    // 3. Query sessions matching any of these IDs
+    const snapshot = await db.collection('sessions')
+      .where('facultyId', 'in', possibleIds)
+      .get();
+      
+    console.log(`[API] getSessionsByFaculty - Found ${snapshot.size} sessions.`);
+    
+    const sessions = await enrichSessions(snapshot.docs);
     res.json(sessions);
   } catch (error: any) {
+    console.error(`[API] getSessionsByFaculty Error:`, error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -210,42 +277,37 @@ export const getSessionsByStudent = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'studentId is required.' });
     }
 
+    // 1. Find courses the student is enrolled in
     const enrollments = await db.collection('enrollments').where('studentId', '==', studentId).get();
     const courseIds = Array.from(new Set(enrollments.docs.map((doc) => doc.data().courseId)));
+    
     if (courseIds.length === 0) {
       return res.json([]);
     }
 
-    let sessions: any[] = [];
+    // 2. Fetch sessions for those courses
+    let sessionDocs: admin.firestore.QueryDocumentSnapshot[] = [];
     for (let i = 0; i < courseIds.length; i += 30) {
       const chunk = courseIds.slice(i, i + 30);
       const snap = await db.collection('sessions').where('courseId', 'in', chunk).get();
-      snap.docs.forEach((doc) => sessions.push({ id: doc.id, ...doc.data() }));
+      sessionDocs = sessionDocs.concat(snap.docs);
     }
 
-    const [coursesSnap, classroomsSnap, attendanceSnap] = await Promise.all([
-      db.collection('courses').get(),
-      db.collection('classrooms').get(),
-      db.collection('attendance').where('studentId', '==', studentId).get()
-    ]);
-    const courseMap = Object.fromEntries(coursesSnap.docs.map((doc) => [doc.id, doc.data()]));
-    const classroomMap = Object.fromEntries(classroomsSnap.docs.map((doc) => [doc.id, doc.data()]));
+    // 3. Enrich sessions with course/classroom/faculty details
+    const sessions = await enrichSessions(sessionDocs);
+
+    // 4. Attach attendance status for this specific student
+    const attendanceSnap = await db.collection('attendance').where('studentId', '==', studentId).get();
     const attendedSessionIds = new Set(attendanceSnap.docs.map((doc) => doc.data().sessionId));
 
-    const normalized = sessions.map((session) => {
-      const course = courseMap[session.courseId] as any;
-      const classroom = classroomMap[session.classroomId] as any;
-      return {
-        ...session,
-        courseName: session.courseName || course?.name || 'Unknown Course',
-        courseCode: course?.code || 'N/A',
-        classroomName: classroom?.name || session.classroomName || 'Unknown Classroom',
-        attended: attendedSessionIds.has(session.id)
-      };
-    });
+    const finalSessions = sessions.map(s => ({
+      ...s,
+      attended: attendedSessionIds.has(s.id)
+    }));
 
-    return res.json(normalized);
+    return res.json(finalSessions);
   } catch (error: any) {
+    console.error('[GET_STUDENT_SESSIONS_ERROR]', error);
     return res.status(500).json({ error: error.message });
   }
 };

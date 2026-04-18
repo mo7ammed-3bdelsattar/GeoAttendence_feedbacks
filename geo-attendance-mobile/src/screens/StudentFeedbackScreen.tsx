@@ -53,9 +53,18 @@ const StudentFeedbackScreen: React.FC = () => {
       setSelectedCourse(null);
       setRating(0);
       setMessage('');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to submit feedback:', error);
-      Alert.alert('Error', 'Failed to submit feedback. Try again.');
+      const status = error?.response?.status;
+      const serverMsg = error?.response?.data?.error;
+      if (status === 409 || (serverMsg && serverMsg.toLowerCase().includes('already'))) {
+        Alert.alert(
+          'Already Submitted',
+          'You have already submitted feedback for this course. Each course only allows one feedback submission.'
+        );
+      } else {
+        Alert.alert('Error', 'Failed to submit feedback. Please try again.');
+      }
     } finally {
       setSubmitting(false);
     }
