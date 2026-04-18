@@ -8,7 +8,9 @@ import * as classroomController from '../controllers/classroomController';
 import * as sessionController from '../controllers/sessionController';
 import * as feedbackController from '../controllers/feedbackController';
 import * as attendanceController from '../controllers/attendanceController';
-import { getStudentCourses, getStudentDashboard, studentScheduleController } from '../controllers/studentController';
+import * as notificationController from '../controllers/notificationController';
+import { getMySchedule, getStudentCourses, getStudentDashboard, studentScheduleController } from '../controllers/studentController';
+import { requireStudentAuth } from '../middleware/authGuard';
 
 const router = Router();
 
@@ -29,6 +31,7 @@ router.patch('/admin/departments/:id', departmentController.updateDepartment);
 router.delete('/admin/departments/:id', departmentController.deleteDepartment);
 
 // Enrollment routes
+router.get('/student/my-courses', enrollmentController.getMyCourses);
 router.get('/enrollments', enrollmentController.getEnrollments);
 router.get('/enrollments/student/:id', enrollmentController.getEnrollmentsByStudent);
 router.post('/enrollments', enrollmentController.enrollStudent);
@@ -55,6 +58,8 @@ router.get('/sessions/faculty/:id', sessionController.getSessionsByFaculty);
 router.get('/sessions/student/:id', sessionController.getSessionsByStudent);
 router.put('/sessions/:id', sessionController.updateSession);
 router.delete('/sessions/:id', sessionController.deleteSession);
+router.post('/sessions/:id/start', sessionController.startSessionById);
+router.post('/sessions/:id/end', sessionController.endSessionById);
 
 // Attendance routes
 router.post('/attendance', attendanceController.markAttendance);
@@ -67,8 +72,11 @@ router.get('/feedback', feedbackController.getAllFeedback);
 router.get('/feedback/course/:courseId', feedbackController.getFeedbackByCourse);
 router.get('/feedback/faculty/:facultyId', feedbackController.getFeedbackByFaculty);
 router.get('/feedback/student/:id', feedbackController.getFeedbackByStudent);
+router.delete('/feedback/:id', feedbackController.deleteFeedbackById);
+router.get('/notifications/my', notificationController.getMyNotifications);
 
 // Student schedule routes
+router.get('/student/my-schedule', requireStudentAuth, getMySchedule);
 router.get('/student/schedule', studentScheduleController.getSchedule);
 router.post('/student/courses', studentScheduleController.saveCourses);
 router.get('/student/courses/:studentId', getStudentCourses);

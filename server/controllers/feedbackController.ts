@@ -25,19 +25,31 @@ export const submitFeedback = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Invalid courseId.' });
     }
 
-    const existing = await db
-      .collection('feedback')
-      .where('studentId', '==', String(payload.studentId))
-      .where('courseId', '==', String(payload.courseId))
-      .limit(1)
-      .get();
-    if (!existing.empty) {
+    const studentId = String(payload.studentId);
+    const courseId = String(payload.courseId);
+    const [existingCamelCase, existingSnakeCase] = await Promise.all([
+      db
+        .collection('feedback')
+        .where('studentId', '==', studentId)
+        .where('courseId', '==', courseId)
+        .limit(1)
+        .get(),
+      db
+        .collection('feedback')
+        .where('student_id', '==', studentId)
+        .where('course_id', '==', courseId)
+        .limit(1)
+        .get()
+    ]);
+    if (!existingCamelCase.empty || !existingSnakeCase.empty) {
       return res.status(409).json({ error: 'You have already submitted feedback for this course.' });
     }
 
     const feedbackData = {
-      studentId: String(payload.studentId),
-      courseId: String(payload.courseId),
+      studentId,
+      courseId,
+      student_id: studentId,
+      course_id: courseId,
       rating: Number(payload.rating),
       message: payload.message?.trim() ?? '',
       createdAt: new Date().toISOString()
@@ -140,9 +152,38 @@ export const getFeedbackByStudent = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'studentId is required.' });
     }
 
-    const snapshot = await db.collection('feedback').where('studentId', '==', studentId).orderBy('createdAt', 'desc').get();
-    const feedback = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const [camelCaseSnapshot, snakeCaseSnapshot] = await Promise.all([
+      db.collection('feedback').where('studentId', '==', studentId).get(),
+      db.collection('feedback').where('student_id', '==', studentId).get()
+    ]);
+    const feedbackMap = new Map<string, any>();
+    [...camelCaseSnapshot.docs, ...snakeCaseSnapshot.docs].forEach((doc) => {
+      feedbackMap.set(doc.id, { id: doc.id, ...doc.data() });
+    });
+    const feedback = Array.from(feedbackMap.values()).sort((a, b) =>
+      String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? ''))
+    );
     return res.json(feedback);
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+};
+
+export const deleteFeedbackById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    if (!id || !id.trim()) {
+      return res.status(400).json({ error: 'feedback id is required.' });
+    }
+
+    const feedbackRef = db.collection('feedback').doc(id);
+    const feedbackSnap = await feedbackRef.get();
+    if (!feedbackSnap.exists) {
+      return res.status(404).json({ error: 'Feedback not found.' });
+    }
+
+    await feedbackRef.delete();
+    return res.status(204).send();
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }

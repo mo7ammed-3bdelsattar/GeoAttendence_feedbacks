@@ -22,6 +22,7 @@ import { cn } from '../../utils/cn.ts';
 
 const studentNav = [
   { to: '/student', label: 'Home', icon: Home },
+  { to: '/student/schedule', label: 'My Schedule', icon: CalendarDays },
   { to: '/student/profile', label: 'Profile', icon: User },
   { to: '/student/feedback', label: 'Feedback', icon: MessageSquare },
 ];
