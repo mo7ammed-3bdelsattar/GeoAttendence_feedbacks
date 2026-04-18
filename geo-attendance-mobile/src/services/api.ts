@@ -255,18 +255,6 @@ export const sessionApi = {
   },
 };
 
-export const studentApi = {
-  getStudentSessions: async (studentId: string) => {
-    try {
-      const response = await api.get(`/sessions/student/${studentId}`);
-      return response.data;
-    } catch (error) {
-      console.error('Get student sessions error:', error);
-      throw error;
-    }
-  },
-};
-
 export const attendanceApi = {
   markAttendance: async (payload: {
     studentId: string;
@@ -341,18 +329,6 @@ export const studentApi = {
       return response.data;
     } catch (error) {
       console.error('Get student courses error:', error);
-      throw error;
-    }
-  }
-};
-
-export const attendanceApi = {
-  markAttendance: async (data: { studentId: string; sessionId: string; latitude: number; longitude: number }) => {
-    try {
-      const response = await api.post('/attendance', data);
-      return response.data;
-    } catch (error) {
-      console.error('Mark attendance error:', error);
       throw error;
     }
   }
