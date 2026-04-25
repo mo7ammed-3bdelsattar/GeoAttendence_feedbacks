@@ -54,7 +54,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       } catch (error) {
         console.warn('[AUTH] Unable to restore user from storage.', error);
       } finally {
-        setLoading(false);
+        // We don't set loading to false here yet, 
+        // we wait for the first onAuthStateChanged to give us a definitive answer
+        // or a timeout.
       }
     };
 
@@ -62,16 +64,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   useEffect(() => {
+    let initialized = false;
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       setFirebaseUser(fbUser);
-      if (!fbUser) {
+      
+      if (!fbUser && initialized) {
+        // Only clear if we were already initialized and lost the session
         setUser(null);
         await AsyncStorage.removeItem('userToken');
         await AsyncStorage.removeItem('userData');
       }
+      
+      initialized = true;
+      setLoading(false);
     });
 
-    return unsubscribe;
+    // Fallback: if Firebase takes too long or fails to initialize, 
+    // stop loading so the user can at least see the login screen or restored session.
+    const timeout = setTimeout(() => {
+      if (!initialized) {
+        setLoading(false);
+      }
+    }, 2000);
+
+    return () => {
+      unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
 
   const login = async (email: string, password: string) => {

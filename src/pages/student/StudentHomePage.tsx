@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import { X } from 'lucide-react';
+import { BarChart3, X } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell.tsx';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeleton.tsx';
 import { useAuthStore } from '../../stores/authStore.ts';
@@ -11,7 +11,6 @@ import { StatsCards } from '../../components/student-dashboard/StatsCards.tsx';
 import { SessionsList, type StudentSessionItem } from '../../components/student-dashboard/SessionsList.tsx';
 import { CoursesList } from '../../components/student-dashboard/CoursesList.tsx';
 import { FeedbackSection } from '../../components/student-dashboard/FeedbackSection.tsx';
-import { StudentAttendanceStatsCard } from '../../components/student-dashboard/StudentAttendanceStatsCard.tsx';
 import { getAttendedSessionIdsForStudent } from '../../utils/studentAttendance.ts';
 
 export function StudentHomePage() {
@@ -225,6 +224,12 @@ export function StudentHomePage() {
     [courses, feedbackCourseIds]
   );
 
+  const attendancePercentage = useMemo(() => {
+    const totalLectures = sessions.length;
+    const attendedLecturesCount = attendedSessionIds.size;
+    return totalLectures > 0 ? Math.round((attendedLecturesCount / totalLectures) * 100) : 0;
+  }, [sessions.length, attendedSessionIds]);
+
   const coursesWithNextSession = useMemo(
     () =>
       courses.map((course) => {
@@ -240,32 +245,6 @@ export function StudentHomePage() {
         };
       }),
     [courses, enrollments, normalizedSessions, todayIso]
-  );
-
-  const totalLectures = sessions.length;
-  const attendedLecturesCount = attendedSessionIds.size;
-  const attendancePercentage = totalLectures > 0
-    ? Math.round((attendedLecturesCount / totalLectures) * 100)
-    : 0;
-
-  const startOfWeek = useMemo(() => {
-    const now = new Date();
-    const day = now.getDay();
-    const diffToMonday = day === 0 ? 6 : day - 1;
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - diffToMonday);
-    monday.setHours(0, 0, 0, 0);
-    return monday;
-  }, []);
-
-  const weeklyAttendanceCount = useMemo(
-    () =>
-      sessions.filter((session) => {
-        if (!attendedSessionIds.has(session.id) || !session.date) return false;
-        const sessionDate = new Date(session.date);
-        return sessionDate >= startOfWeek;
-      }).length,
-    [sessions, attendedSessionIds, startOfWeek]
   );
 
   const attendedLectureDetails = useMemo(
@@ -363,17 +342,16 @@ export function StudentHomePage() {
         </div>
 
         {user?.role === 'student' && (
-          <aside className="xl:sticky xl:top-20">
-            <div onClick={() => !attendanceStatsLoading && setDetailsOpen(true)} className="cursor-pointer">
-              <StudentAttendanceStatsCard
-                loading={attendanceStatsLoading}
-                attendancePercentage={attendancePercentage}
-                weeklyAttendanceCount={weeklyAttendanceCount}
-                feedbackCount={feedback.length}
-                onViewDetails={() => setDetailsOpen(true)}
-              />
-            </div>
-          </aside>
+          <button
+            type="button"
+            aria-label="Open attendance details"
+            title="Attendance details"
+            disabled={attendanceStatsLoading}
+            onClick={() => setDetailsOpen(true)}
+            className="fixed right-4 top-1/2 -translate-y-1/2 z-30 h-12 w-12 rounded-2xl border border-gray-200 bg-white shadow-lg flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <BarChart3 className="h-5 w-5 text-primary" />
+          </button>
         )}
 
         {detailsOpen && (
@@ -384,7 +362,7 @@ export function StudentHomePage() {
               className="fixed inset-0 bg-black/30 z-40"
               onClick={() => setDetailsOpen(false)}
             />
-            <aside className="fixed top-0 right-0 h-full w-full max-w-xl bg-white z-50 shadow-2xl border-l border-gray-200 overflow-y-auto">
+            <aside className="fixed top-0 right-0 h-full w-full max-w-sm bg-white z-50 shadow-2xl border-l border-gray-200 overflow-y-auto">
               <div className="p-5 border-b border-gray-100 flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-bold text-gray-900">Attendance Details</h3>
@@ -402,6 +380,22 @@ export function StudentHomePage() {
               </div>
 
               <div className="p-5 space-y-6">
+                <section className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="rounded-xl bg-white border border-gray-100 p-3">
+                      <p className="text-[11px] font-semibold text-gray-500">Attendance</p>
+                      <p className="text-lg font-extrabold text-gray-900 mt-1">{attendancePercentage}%</p>
+                    </div>
+                    <div className="rounded-xl bg-white border border-gray-100 p-3">
+                      <p className="text-[11px] font-semibold text-gray-500">Attended</p>
+                      <p className="text-lg font-extrabold text-gray-900 mt-1">{attendedSessionIds.size}</p>
+                    </div>
+                    <div className="rounded-xl bg-white border border-gray-100 p-3">
+                      <p className="text-[11px] font-semibold text-gray-500">Feedback</p>
+                      <p className="text-lg font-extrabold text-gray-900 mt-1">{feedbackDetails.length}</p>
+                    </div>
+                  </div>
+                </section>
                 <section>
                   <h4 className="text-sm font-semibold text-gray-900 mb-3">Attended Lectures</h4>
                   {attendedLectureDetails.length === 0 ? (

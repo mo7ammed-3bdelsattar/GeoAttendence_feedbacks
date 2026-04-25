@@ -19,6 +19,7 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '../../stores/authStore.ts';
 import type { UserRole } from '../../types/index.ts';
 import { cn } from '../../utils/cn.ts';
+import { AiChatWidget } from '../ai/AiChatWidget.tsx';
 
 const studentNav = [
   { to: '/student', label: 'Home', icon: Home },
@@ -107,7 +108,6 @@ export function AppShell({ children, title }: AppShellProps) {
               type="button"
               onClick={() => setUserMenuOpen((o) => !o)}
               className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-gray-100 transition-colors duration-200"
-              aria-expanded={userMenuOpen}
               aria-haspopup="true"
             >
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
@@ -147,6 +147,7 @@ export function AppShell({ children, title }: AppShellProps) {
           </div>
         </header>
         <main className="flex-1 p-4 pb-24 md:pb-4">{children}</main>
+        <AiChatWidget />
 
         {/* Bottom nav mobile */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 border-t border-gray-200 bg-white flex justify-around py-2 safe-area-pb">

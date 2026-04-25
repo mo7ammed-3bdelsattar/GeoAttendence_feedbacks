@@ -19,8 +19,16 @@ export function StudentSessionsPage() {
       if (!user?.id) return;
       setLoading(true);
       try {
-        const rows = await sessionApi.getStudentSessions(user.id);
-        setSessions(rows ?? []);
+        const rows = await sessionApi.getSessions().catch(() => []);
+        const now = new Date();
+        const visible = (rows ?? [])
+          .filter((session: any) => {
+            if (!session?.date) return false;
+            const sessionDateTime = new Date(`${session.date}T${session.startTime || '00:00'}:00`);
+            return sessionDateTime >= now || session.date === now.toISOString().slice(0, 10);
+          })
+          .sort((a: any, b: any) => `${a.date} ${a.startTime}`.localeCompare(`${b.date} ${b.startTime}`));
+        setSessions(visible);
       } catch {
         toast.error('Failed to load sessions.');
       } finally {

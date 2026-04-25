@@ -44,11 +44,13 @@ const StudentSessionsScreen: React.FC = () => {
     try {
       const data = await sessionApi.getSessions();
       const now = new Date();
+      const todayStr = now.toLocaleDateString('en-CA'); // YYYY-MM-DD local
+      
       const visibleSessions = (data as Session[])
         .filter((session) => {
           if (!session.date) return false;
-          const sessionDateTime = new Date(`${session.date}T${session.startTime || '00:00'}:00`);
-          return sessionDateTime >= now || session.date === now.toISOString().slice(0, 10);
+          // Show if it's today (any time) or in the future
+          return session.date >= todayStr;
         })
         .sort((a, b) => {
           const left = new Date(`${a.date || ''}T${a.startTime || '00:00'}:00`).getTime();
@@ -264,13 +266,17 @@ const StudentSessionsScreen: React.FC = () => {
     return (
       <View style={styles.card}>
         <View style={styles.cardHeader}>
-          <Text style={styles.courseName}>{item.course?.name || 'Unknown Course'}</Text>
+          <Text style={styles.courseName} numberOfLines={2}>
+            {item.course?.name || 'Unknown Course'}
+          </Text>
           <View style={[styles.statusBadge, item.isActive ? styles.statusActive : styles.statusInactive]}>
             <Text style={styles.statusText}>{item.isActive ? 'Active' : 'Closed'}</Text>
           </View>
         </View>
         <Text style={styles.detailText}>📅 {formattedDate}</Text>
-        <Text style={styles.detailText}>📍 {item.classroom?.name || 'No Location'}</Text>
+        <Text style={styles.detailText} numberOfLines={2}>
+          📍 {item.classroom?.name || 'No Location'}
+        </Text>
         
         {item.isActive ? (
           <View style={{ marginTop: 16 }}>
@@ -377,11 +383,16 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: Colors.card,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: Colors.border,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -392,6 +403,8 @@ const styles = StyleSheet.create({
   courseName: {
     ...Typography.Typography.h3,
     color: Colors.textPrimary,
+    flex: 1,
+    marginRight: 10,
   },
   detailText: {
     ...Typography.Typography.body,

@@ -25,6 +25,7 @@ import { AdminFeedbackAuditPage } from '../pages/admin/AdminFeedbackAuditPage.ts
 import { FacultySessionsPage } from '../pages/faculty/FacultySessionsPage.tsx';
 import { FacultyFeedbackPage } from '../pages/faculty/FacultyFeedbackPage.tsx';
 import { AttendanceSummaryPage } from '../pages/faculty/AttendanceSummaryPage.tsx';
+import { AiChatPage } from '../pages/common/AiChatPage.tsx';
 import { RoleGuard } from '../components/RoleGuard.tsx';
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: UserRole[] }) {
@@ -102,6 +103,11 @@ export const router = createBrowserRouter([
   {
     path: '/student/activity-details',
     element: <ProtectedRoute allowedRoles={['student']}><StudentActivityDetailsPage /></ProtectedRoute>,
+  },
+
+  {
+    path: '/ai-chat',
+    element: <ProtectedRoute allowedRoles={['admin', 'faculty', 'student']}><AiChatPage /></ProtectedRoute>,
   },
 
   {

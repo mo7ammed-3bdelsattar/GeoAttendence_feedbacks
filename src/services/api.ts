@@ -444,4 +444,11 @@ export const studentApi = {
   }
 };
 
+export const aiApi = {
+  async chat(payload: { message: string; messages?: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> }): Promise<{ message: string; model?: string }> {
+    const response = await api.post('/ai/chat', payload);
+    return response.data;
+  },
+};
+
 export default api;

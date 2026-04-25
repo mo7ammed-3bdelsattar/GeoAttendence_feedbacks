@@ -394,8 +394,23 @@ export const studentApi = {
     const response = await api.get(`/student/courses/${studentId}`);
     return response.data;
   },
+  getAllCourses: async () => {
+    const response = await api.get('/admin/courses');
+    return response.data;
+  },
+  saveCourses: async (studentId: string, courseIds: string[]) => {
+    const response = await api.post('/student/courses', { studentId, courseIds });
+    return response.data;
+  },
   getStudentDashboard: async (studentId: string) => {
     const response = await api.get(`/student/dashboard/${studentId}`);
+    return response.data;
+  }
+};
+
+export const aiApi = {
+  chat: async (payload: { message: string; messages?: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> }) => {
+    const response = await api.post('/ai/chat', payload);
     return response.data;
   }
 };

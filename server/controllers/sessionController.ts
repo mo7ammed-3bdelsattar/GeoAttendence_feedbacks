@@ -16,6 +16,9 @@ type SessionDoc = {
   status?: 'UPCOMING' | 'ACTIVE' | 'ENDED';
   startedAt?: string;
   endedAt?: string;
+  checkInDeadline?: string;
+  qrSecret?: string;
+  qrRotatedAt?: string;
 };
 
 async function isFacultyUser(userId: string): Promise<boolean> {
@@ -47,17 +50,14 @@ async function hasClassroomConflict(
   });
 }
 
-// ── Shared helper: attach course / faculty / classroom info to sessions ──
 async function enrichSessions(rawDocs: admin.firestore.QueryDocumentSnapshot[]) {
   try {
     if (rawDocs.length === 0) return [];
     
-    // Collect unique IDs
     const courseIds   = [...new Set(rawDocs.map(d => d.data().courseId).filter(id => !!id && typeof id === 'string'))];
     const facultyIds  = [...new Set(rawDocs.map(d => d.data().facultyId).filter(id => !!id && typeof id === 'string'))];
     const classroomIds= [...new Set(rawDocs.map(d => d.data().classroomId).filter(id => !!id && typeof id === 'string'))];
 
-    // Fetch all referenced docs in parallel
     const [courseDocs, facultyDocs, classroomDocs] = await Promise.all([
       courseIds.length   ? db.getAll(...courseIds.map(id   => db.collection('courses').doc(id)))    : Promise.resolve([]),
       facultyIds.length  ? db.getAll(...facultyIds.map(id  => db.collection('users').doc(id)))      : Promise.resolve([]),
@@ -71,19 +71,17 @@ async function enrichSessions(rawDocs: admin.firestore.QueryDocumentSnapshot[]) 
     return rawDocs.map(doc => {
       const data = doc.data() as any;
       
-      // Safety Check: A session is ONLY active if:
-      // 1. Its status is 'active' in DB
-      // 2. AND its date is Today (or missing/invalid date treated carefully)
       const todayStr = new Date().toISOString().split('T')[0];
       const sessionDate = data.date ? (typeof data.date === 'string' ? data.date.split('T')[0] : '') : '';
       
       const isDateToday = sessionDate === todayStr;
-      const isActiveInDb = data.isActive === true || data.status === 'active';
+      const statusLower = String(data.status || '').toLowerCase();
+      const isActiveInDb = data.isActive === true || statusLower === 'active';
       
       return {
         id: doc.id,
         ...data,
-        isActive: isActiveInDb && isDateToday, // Must be both
+        isActive: isActiveInDb && isDateToday,
         course:    courseMap[data.courseId]    || null,
         faculty:   facultyMap[data.facultyId]  || null,
         classroom: classroomMap[data.classroomId] || null,
@@ -91,7 +89,6 @@ async function enrichSessions(rawDocs: admin.firestore.QueryDocumentSnapshot[]) 
     });
   } catch (err) {
     console.error('[ENRICH_SESSIONS_ERROR]', err);
-    // Fallback to raw data if enrichment fails
     return rawDocs.map(doc => ({ id: doc.id, ...doc.data() as any }));
   }
 }
@@ -628,7 +625,8 @@ export const getSessionQr = async (req: Request, res: Response) => {
     }
 
     const session = sessionSnap.data() as SessionDoc;
-    if (session.status !== 'active') {
+    const statusLower = String(session.status || '').toLowerCase();
+    if (statusLower !== 'active') {
       return res.status(400).json({ error: 'session_not_active', message: 'Session must be active to generate a QR code.' });
     }
 
@@ -683,7 +681,8 @@ export const checkInWithQr = async (req: Request, res: Response) => {
     }
 
     const session = sessionSnap.data() as SessionDoc;
-    if (session.status !== 'active') {
+    const statusLower = String(session.status || '').toLowerCase();
+    if (statusLower !== 'active') {
       return res.status(403).json({ error: 'session_not_active', message: 'QR is only valid while the session is active.' });
     }
     if (!session.qrSecret) {
@@ -703,16 +702,6 @@ export const checkInWithQr = async (req: Request, res: Response) => {
 
     if (!session.checkInDeadline || now > new Date(session.checkInDeadline).getTime()) {
       return res.status(403).json({ error: 'checkin_window_closed', message: 'Check-in window is closed. The session started more than 15 minutes ago.' });
-    }
-
-    const enrollmentSnap = await db.collection('enrollments')
-      .where('studentId', '==', currentUser.uid)
-      .where('courseId', '==', session.courseId)
-      .limit(1)
-      .get();
-
-    if (enrollmentSnap.empty) {
-      return res.status(403).json({ error: 'not_enrolled', message: 'You are not enrolled in this course.' });
     }
 
     const classroomDoc = await db.collection('classrooms').doc(session.classroomId).get();
@@ -771,15 +760,16 @@ export const checkOutWithQr = async (req: Request, res: Response) => {
     }
 
     const session = sessionSnap.data() as SessionDoc;
+    const statusLower = String(session.status || '').toLowerCase();
+    if (statusLower !== 'active') {
+      return res.status(403).json({ error: 'session_not_active', message: 'Session must be active for check-out.' });
+    }
     if (!session.qrSecret) {
       return res.status(403).json({ error: 'invalid_qr', message: 'QR token is invalid.' });
     }
 
     try {
       jwt.verify(qrToken, session.qrSecret);
-    if (session.status !== 'active') {
-      return res.status(403).json({ error: 'session_not_active', message: 'Session must be active for check-out.' });
-    }
 
     const now = Date.now();
     if (decoded.expiresAt <= now) {

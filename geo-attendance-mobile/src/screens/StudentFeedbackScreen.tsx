@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { navigate } from '../navigation/navigationRef';
 import Colors from '../theme/colors';
 import Typography from '../theme/typography';
 import { useAuth } from '../context/AuthContext';
@@ -125,7 +126,14 @@ const StudentFeedbackScreen: React.FC = () => {
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ paddingBottom: 20 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchCourses(); }} tintColor={Colors.primary} />}
-          ListEmptyComponent={<Text style={{ color: Colors.textSecondary, textAlign: 'center' }}>No enrolled courses.</Text>}
+          ListEmptyComponent={
+            <View style={{ alignItems: 'center', gap: 12, marginTop: 18 }}>
+              <Text style={{ color: Colors.textSecondary, textAlign: 'center' }}>No enrolled courses.</Text>
+              <TouchableOpacity style={styles.pickCoursesButton} onPress={() => navigate('StudentCoursePicker')}>
+                <Text style={styles.pickCoursesButtonText}>Select My Courses</Text>
+              </TouchableOpacity>
+            </View>
+          }
           renderItem={({ item }) => (
             <TouchableOpacity style={styles.courseCard} onPress={() => setSelectedCourse(item.id)}>
               <Text style={styles.courseName}>{item.name}</Text>
@@ -207,6 +215,16 @@ const styles = StyleSheet.create({
   submitButtonText: {
     ...Typography.Typography.h3,
     color: '#fff',
+  },
+  pickCoursesButton: {
+    backgroundColor: Colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+  },
+  pickCoursesButtonText: {
+    color: '#fff',
+    fontWeight: '800',
   },
 });
 

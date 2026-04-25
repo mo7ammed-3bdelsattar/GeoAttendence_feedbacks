@@ -114,73 +114,56 @@ const StudentDashboardScreen: React.FC = () => {
   }
 
   return (
-    <ScrollView 
-      style={styles.container}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchDashboard(); }} tintColor={Colors.primary} />}
-    >
-      <View style={styles.headerRow}>
-        <View>
-          <Text style={styles.title}>Hello, {user?.name.split(' ')[0]}</Text>
-          <Text style={styles.subtitle}>Welcome back to GeoAttend!</Text>
-        </View>
-        <TouchableOpacity style={styles.logoutButton} onPress={logout}>
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={[styles.contentRow, isWideScreen && styles.contentRowWide]}>
-        <View style={[styles.mainColumn, isWideScreen && styles.mainColumnWide]}>
-          <View style={styles.gridContainer}>
-            <View style={styles.statCard}>
-              <Text style={styles.statIcon}>🎓</Text>
-              <Text style={styles.statValue}>{stats.courses}</Text>
-              <Text style={styles.statLabel}>Enrolled Courses</Text>
-            </View>
-
-            <View style={styles.statCard}>
-              <Text style={styles.statIcon}>🗓️</Text>
-              <Text style={styles.statValue}>{stats.sessions}</Text>
-              <Text style={styles.statLabel}>Upcoming Sessions</Text>
-            </View>
-
-            <View style={styles.statCard}>
-              <Text style={styles.statIcon}>📍</Text>
-              <Text style={styles.statValue}>{stats.attendancePercentage}%</Text>
-              <Text style={styles.statLabel}>Attendance</Text>
-            </View>
+    <View style={styles.screen}>
+      <ScrollView 
+        style={styles.container}
+        contentContainerStyle={{ paddingBottom: 110 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchDashboard(); }} tintColor={Colors.primary} />}
+      >
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={styles.title}>Hello, {user?.name.split(' ')[0]}</Text>
+            <Text style={styles.subtitle}>Welcome back to GeoAttend!</Text>
           </View>
-        </View>
-
-        <View style={[styles.sideColumn, isWideScreen && styles.sideColumnWide]}>
-          <TouchableOpacity
-            activeOpacity={0.9}
-            style={styles.summaryCard}
-            onPress={() => setDetailsModalOpen(true)}
-          >
-            <Text style={styles.summaryTitle}>Attendance Snapshot</Text>
-            <Text style={styles.summarySubtitle}>Your attendance and feedback progress.</Text>
-
-            <View style={styles.summaryGrid}>
-              <View style={styles.summaryStat}>
-                <Text style={styles.summaryLabel}>Attendance %</Text>
-                <Text style={styles.summaryValue}>{stats.attendancePercentage}%</Text>
-              </View>
-              <View style={styles.summaryStat}>
-                <Text style={styles.summaryLabel}>This Week</Text>
-                <Text style={styles.summaryValue}>{stats.weeklyAttendanceCount}</Text>
-              </View>
-              <View style={styles.summaryStat}>
-                <Text style={styles.summaryLabel}>Feedbacks</Text>
-                <Text style={styles.summaryValue}>{stats.feedbackCount}</Text>
-              </View>
-            </View>
-
-            <TouchableOpacity style={styles.detailsButton} onPress={() => setDetailsModalOpen(true)}>
-              <Text style={styles.detailsButtonText}>View Details</Text>
-            </TouchableOpacity>
+          <TouchableOpacity style={styles.logoutButton} onPress={logout}>
+            <Text style={styles.logoutText}>Logout</Text>
           </TouchableOpacity>
         </View>
-      </View>
+
+        <View style={[styles.contentRow, isWideScreen && styles.contentRowWide]}>
+          <View style={[styles.mainColumn, isWideScreen && styles.mainColumnWide]}>
+            <View style={styles.gridContainer}>
+              <View style={styles.statCard}>
+                <Text style={styles.statIcon}>🎓</Text>
+                <Text style={styles.statValue}>{stats.courses}</Text>
+                <Text style={styles.statLabel}>Enrolled Courses</Text>
+              </View>
+
+              <View style={styles.statCard}>
+                <Text style={styles.statIcon}>🗓️</Text>
+                <Text style={styles.statValue}>{stats.sessions}</Text>
+                <Text style={styles.statLabel}>Upcoming Sessions</Text>
+              </View>
+
+              <View style={styles.statCard}>
+                <Text style={styles.statIcon}>📍</Text>
+                <Text style={styles.statValue}>{stats.attendancePercentage}%</Text>
+                <Text style={styles.statLabel}>Attendance</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={[styles.sideColumn, isWideScreen && styles.sideColumnWide]} />
+        </View>
+      </ScrollView>
+
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPress={() => setDetailsModalOpen(true)}
+        style={styles.floatingDetailsIcon}
+      >
+        <Text style={styles.floatingDetailsIconText}>📊</Text>
+      </TouchableOpacity>
 
       <Modal
         visible={detailsModalOpen}
@@ -192,12 +175,27 @@ const StudentDashboardScreen: React.FC = () => {
         <View style={styles.detailsPanel}>
           <View style={styles.detailsHeader}>
             <View>
-              <Text style={styles.detailsHeaderTitle}>Attendance Details</Text>
-              <Text style={styles.detailsHeaderSubtitle}>Lectures attended and submitted feedback.</Text>
+              <Text style={styles.detailsHeaderTitle}>Attendance Stats</Text>
+              <Text style={styles.detailsHeaderSubtitle}>Summary of your participation</Text>
             </View>
             <TouchableOpacity onPress={() => setDetailsModalOpen(false)} style={styles.closeButton}>
               <Text style={styles.closeButtonText}>✕</Text>
             </TouchableOpacity>
+          </View>
+
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryValue}>{stats.attendancePercentage}%</Text>
+              <Text style={styles.summaryLabel}>Attendance</Text>
+            </View>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryValue}>{attendedSessions.length}</Text>
+              <Text style={styles.summaryLabel}>Attended</Text>
+            </View>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryValue}>{stats.feedbackCount}</Text>
+              <Text style={styles.summaryLabel}>Feedback</Text>
+            </View>
           </View>
 
           <ScrollView contentContainerStyle={styles.detailsContainer}>
@@ -232,11 +230,15 @@ const StudentDashboardScreen: React.FC = () => {
           </ScrollView>
         </View>
       </Modal>
-    </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -317,57 +319,26 @@ const styles = StyleSheet.create({
   sideColumnWide: {
     width: 360,
   },
-  summaryCard: {
+  floatingDetailsIcon: {
+    position: 'absolute',
+    right: 16,
+    bottom: 86,
+    width: 54,
+    height: 54,
+    borderRadius: 18,
     backgroundColor: Colors.card,
-    borderRadius: 16,
-    padding: 16,
     borderWidth: 1,
     borderColor: Colors.border,
-    marginTop: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
   },
-  summaryTitle: {
-    ...Typography.Typography.h3,
-    color: Colors.textPrimary,
-  },
-  summarySubtitle: {
-    ...Typography.Typography.bodySmall,
-    color: Colors.textSecondary,
-    marginTop: 4,
-    marginBottom: 12,
-  },
-  summaryGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  summaryStat: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: 12,
-    padding: 10,
-    backgroundColor: Colors.surfaceLight,
-  },
-  summaryLabel: {
-    ...Typography.Typography.bodySmall,
-    color: Colors.textSecondary,
-  },
-  summaryValue: {
-    ...Typography.Typography.h3,
-    marginTop: 6,
-    color: Colors.primaryLight,
-  },
-  detailsButton: {
-    marginTop: 14,
-    alignSelf: 'flex-start',
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 10,
-  },
-  detailsButtonText: {
-    ...Typography.Typography.label,
-    color: '#fff',
+  floatingDetailsIconText: {
+    fontSize: 22,
   },
   detailsContainer: {
     padding: 16,
@@ -378,12 +349,38 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     bottom: 0,
-    width: '88%',
+    width: 320,
+    maxWidth: '90%',
     backgroundColor: Colors.background,
     borderTopLeftRadius: 18,
     borderBottomLeftRadius: 18,
     borderLeftWidth: 1,
     borderLeftColor: Colors.border,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 20,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    backgroundColor: Colors.surfaceLight,
+  },
+  summaryItem: {
+    alignItems: 'center',
+  },
+  summaryValue: {
+    ...Typography.Typography.h2,
+    color: Colors.primary,
+    fontSize: 20,
+  },
+  summaryLabel: {
+    ...Typography.Typography.bodySmall,
+    color: Colors.textSecondary,
+    marginTop: 2,
   },
   detailsHeader: {
     paddingHorizontal: 16,
