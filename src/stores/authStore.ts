@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { User, UserRole } from '../types/index.ts';
+import type { User } from '../types/index.ts';
 import { authApi } from '../services/api.ts';
 import { clearAuth, setAccessToken } from '../utils/storage.ts';
 
@@ -9,7 +9,7 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-  login: (email: string, password: string, role: UserRole) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   /** Restores the user session using the token in storage. */
   restoreSession: (user: User, token: string) => void;
   logout: () => Promise<void>;
@@ -26,10 +26,10 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isLoading: false,
       error: null,
-      login: async (email, password, role) => {
+      login: async (email, password) => {
         set({ isLoading: true, error: null });
         try {
-          const { user, token } = await authApi.login(email, password, role);
+          const { user, token } = await authApi.login(email, password);
           setAccessToken(token);
           set({ user, isAuthenticated: true, isLoading: false, error: null });
         } catch (e) {

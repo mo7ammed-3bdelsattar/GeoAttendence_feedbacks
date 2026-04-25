@@ -18,11 +18,7 @@ const api = axios.create({
 });
 
 const normalizeApiError = (error: any, fallback: string) => {
-  const code = error?.response?.data?.error;
   const message = error?.response?.data?.message || error?.response?.data?.error;
-  if (code === 'role_mismatch' || message === 'Role mismatch.') {
-    return 'The selected role does not match the account type. Please choose the correct role.';
-  }
   return message || fallback;
 };
 
@@ -35,6 +31,25 @@ api.interceptors.request.use(
     return config;
   },
   (error) => Promise.reject(error)
+);
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    if (error.response?.status === 401 && clientAuth.currentUser && !originalRequest._retry) {
+      originalRequest._retry = true;
+      try {
+        const newToken = await clientAuth.currentUser.getIdToken(true);
+        await AsyncStorage.setItem('userToken', newToken);
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        return Promise.reject(refreshError);
+      }
+    }
+    return Promise.reject(error);
+  }
 );
 
 export interface User {
@@ -55,7 +70,7 @@ export interface Course {
 }
 
 export const authApi = {
-  async login(email: string, password: string, role: string): Promise<{ user: any; token: string }> {
+  async login(email: string, password: string): Promise<{ user: any; token: string }> {
     try {
       // 1. Try Firebase Authentication first
       console.log('[AUTH] Attempting Firebase login...');
@@ -63,7 +78,7 @@ export const authApi = {
       const idToken = await userCredential.user.getIdToken();
       
       console.log('[AUTH] Firebase success, syncing with backend...');
-      const response = await api.post('/auth/login', { token: idToken, role, email });
+      const response = await api.post('/auth/login', { token: idToken });
       const userData = response.data;
   
       return {
@@ -79,7 +94,7 @@ export const authApi = {
       // 2. Fallback to Backend Authentication (for admin/mock accounts)
       console.log('[AUTH] Firebase failed, trying backend fallback...', error.message);
       try {
-        const response = await api.post('/auth/login', { email, password, role });
+        const response = await api.post('/auth/login', { email, password });
         const userData = response.data;
         return {
           user: {
@@ -236,12 +251,12 @@ export const sessionApi = {
   },
 
   startSessionById: async (sessionId: string) => {
-    const response = await api.post('/sessions/start', { sessionId });
+    const response = await api.post(`/sessions/${sessionId}/start`);
     return response.data;
   },
 
   endSession: async (sessionId: string) => {
-    const response = await api.post('/sessions/end', { sessionId });
+    const response = await api.post(`/sessions/${sessionId}/end`);
     return response.data;
   },
 

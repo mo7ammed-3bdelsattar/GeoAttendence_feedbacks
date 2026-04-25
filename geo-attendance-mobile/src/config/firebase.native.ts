@@ -1,6 +1,8 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { initializeAuth, getAuth } from 'firebase/auth';
+import { getReactNativePersistence } from 'firebase/auth/react-native';
 import { getFirestore } from 'firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -12,11 +14,19 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase app (singleton)
+// Prevent re-initialization on hot reload
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// On web, getAuth() uses standard browser persistence by default
-const auth = getAuth(app);
+// Initialize Auth with persistence for Expo
+const auth = (() => {
+  try {
+    return getAuth(app);
+  } catch {
+    return initializeAuth(app, {
+      persistence: getReactNativePersistence(AsyncStorage),
+    });
+  }
+})();
 
 export { auth };
 export const db = getFirestore(app);

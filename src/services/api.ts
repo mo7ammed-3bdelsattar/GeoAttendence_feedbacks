@@ -1,11 +1,9 @@
 import axios, { type AxiosInstance } from 'axios';
 import {
-  signInWithEmailAndPassword,
-  signOut,
-  sendPasswordResetEmail
+  signInWithEmailAndPassword
 } from 'firebase/auth';
 import { auth as clientAuth } from '../config/firebase';
-import { getAccessToken } from '../utils/storage.ts';
+import { getAccessToken, setAccessToken } from '../utils/storage.ts';
 import type { Attendance, Classroom, Course, Department, Enrollment, Session, User, UserRole } from '../types/index.ts';
 import type { Feedback } from '../types/feedback.ts';
 
@@ -28,18 +26,40 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    if (error.response?.status === 401 && clientAuth.currentUser && !originalRequest._retry) {
+      originalRequest._retry = true;
+      try {
+        const newToken = await clientAuth.currentUser.getIdToken(true);
+        setAccessToken(newToken);
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        return Promise.reject(refreshError);
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 const getApiMessage = (error: any, fallback: string) => {
   return error?.response?.data?.message || error?.response?.data?.error || fallback;
 };
 
 export const authApi = {
-  async login(email: string, password: string, role: UserRole): Promise<{ user: User; token: string }> {
+  async login(email: string, password: string): Promise<{ user: User; token: string }> {
     try {
       const userCredential = await signInWithEmailAndPassword(clientAuth, email, password);
       const token = await userCredential.user.getIdToken();
       
-      const response = await api.post('/auth/login', { token, role, email });
+      const response = await api.post('/auth/login', { token });
       const userData = response.data;
+  
+      const finalToken = userData.token || token;
+      setAccessToken(finalToken);
   
       return {
         user: {
@@ -48,12 +68,14 @@ export const authApi = {
           email: userData.email,
           role: userData.role
         },
-        token: userData.token || token
+        token: finalToken
       };
     } catch (error: any) {
       try {
-        const response = await api.post('/auth/login', { email, password, role });
+        const response = await api.post('/auth/login', { email, password });
         const userData = response.data;
+        setAccessToken(userData.token);
+        
         return {
           user: {
             id: userData.id,
@@ -124,7 +146,7 @@ export const adminApi = {
   },
 
   async getOpenCourses(): Promise<Course[]> {
-    const response = await api.get('/courses', { params: { open: true } });
+    const response = await api.get('/admin/courses', { params: { open: true } });
     return response.data;
   },
 
@@ -159,11 +181,6 @@ export const adminApi = {
 
   async deleteClassroom(id: string): Promise<void> {
     await api.delete(`/admin/classrooms/${id}`);
-  },
-
-  async getOpenCourses(): Promise<Course[]> {
-    const response = await api.get('/admin/courses');
-    return response.data;
   },
 };
 

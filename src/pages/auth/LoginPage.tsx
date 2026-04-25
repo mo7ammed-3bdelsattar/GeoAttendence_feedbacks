@@ -3,21 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { GraduationCap, Mail, Lock, ShieldCheck, Globe, CheckCircle2 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore.ts';
 import { FormInput } from '../../components/forms/FormInput.tsx';
-import { FormSelect } from '../../components/forms/FormSelect.tsx';
-import type { UserRole } from '../../types/index.ts';
 import toast from 'react-hot-toast';
 
 interface LoginFormValues {
   email: string;
   password: string;
-  role: UserRole;
 }
-
-const roleOptions: { value: UserRole; label: string }[] = [
-  { value: 'student', label: 'Academic Student' },
-  { value: 'faculty', label: 'Faculty Member' },
-  { value: 'admin', label: 'System Administrator' },
-];
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -28,16 +19,17 @@ export function LoginPage() {
 
   const { register, handleSubmit, formState: { errors, isValid } } = useForm<LoginFormValues>({
     mode: 'onChange',
-    defaultValues: { email: '', password: '', role: 'student' },
+    defaultValues: { email: '', password: '' },
   });
 
   const onSubmit = async (values: LoginFormValues) => {
     clearError();
     const loadingToast = toast.loading('Authenticating credentials...');
     try {
-      await login(values.email, values.password, values.role);
+      await login(values.email, values.password);
       toast.success('Access Granted. Welcome back!', { id: loadingToast });
-      const base = values.role === 'student' ? '/student' : values.role === 'faculty' ? '/faculty' : '/admin';
+      const role = useAuthStore.getState().user?.role;
+      const base = role === 'student' ? '/student' : role === 'faculty' ? '/faculty' : '/admin';
       navigate(base, { replace: true });
     } catch (e: any) {
       const message = e?.message || error || 'Authentication failed. Please check your credentials.';
@@ -135,14 +127,6 @@ export function LoginPage() {
                   error={errors.password?.message}
                   fullWidth
                   {...register('password', { required: 'Password is required' })}
-                />
-
-                <FormSelect
-                  label="Select Role Pool"
-                  options={roleOptions}
-                  fullWidth
-                  error={errors.role?.message}
-                  {...register('role', { required: 'Access level target is required' })}
                 />
 
                 <div className="pt-2">

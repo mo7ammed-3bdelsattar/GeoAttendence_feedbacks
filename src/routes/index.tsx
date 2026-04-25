@@ -11,6 +11,7 @@ import { StudentProfilePage } from '../pages/student/StudentProfilePage.tsx';
 import { StudentFeedbackPage } from '../pages/student/StudentFeedbackPage.tsx';
 import { StudentSessionsPage } from '../pages/student/StudentSessionsPage.tsx';
 import { StudentSchedulePage } from '../pages/student/StudentSchedulePage.tsx';
+import { StudentActivityDetailsPage } from '../pages/student/StudentActivityDetailsPage.tsx';
 
 import { AdminOverviewPage } from '../pages/admin/AdminOverviewPage.tsx';
 import { AdminUsersPage } from '../pages/admin/AdminUsersPage.tsx';
@@ -97,6 +98,10 @@ export const router = createBrowserRouter([
   {
     path: '/student/schedule',
     element: <ProtectedRoute allowedRoles={['student']}><StudentSchedulePage /></ProtectedRoute>,
+  },
+  {
+    path: '/student/activity-details',
+    element: <ProtectedRoute allowedRoles={['student']}><StudentActivityDetailsPage /></ProtectedRoute>,
   },
 
   {

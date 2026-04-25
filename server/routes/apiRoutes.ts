@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import * as userController from '../controllers/userController';
 import * as authController from '../controllers/authController';
+import { loginMock } from '../controllers/authControllerMock';
 import * as enrollmentController from '../controllers/enrollmentController';
 import * as departmentController from '../controllers/departmentController';
 import * as courseController from '../controllers/courseController';
@@ -12,8 +13,10 @@ import * as notificationController from '../controllers/notificationController';
 import { getMySchedule, getStudentCourses, getStudentDashboard, studentScheduleController } from '../controllers/studentController';
 import { requireStudentAuth } from '../middleware/authGuard';
 import { requireRole } from '../middleware/requireRole';
+import { db } from '../config/firebase-admin';
 
 const router = Router();
+const USE_MOCK_AUTH = process.env.USE_MOCK_AUTH === 'true';
 
 // Health check endpoint
 router.get('/health', (req: Request, res: Response) => {
@@ -35,7 +38,13 @@ router.get('/admin/health/firestore', async (req: Request, res: Response) => {
 });
 
 // Auth routes
-router.post('/auth/login', authController.login);
+router.post('/auth/login', (req, res) => {
+  // Keep mock email/password login support, but always use real controller for Firebase token logins.
+  if (req.body?.token) {
+    return authController.login(req, res);
+  }
+  return USE_MOCK_AUTH ? loginMock(req, res) : authController.login(req, res);
+});
 router.post('/auth/reset-password', authController.resetPassword);
 
 // User/Admin routes

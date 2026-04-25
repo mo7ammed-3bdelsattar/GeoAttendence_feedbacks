@@ -48,15 +48,21 @@ export const enrollStudent = async (req: Request, res: Response) => {
             db.collection('courses').doc(String(courseId)).get()
         ]);
 
-        if (!studentDoc.exists || studentDoc.data()?.role !== 'student') {
+        const isDevStudentId = String(studentId).startsWith('dev-');
+        const studentRole = String(studentDoc.data()?.role || '').toLowerCase();
+        const normalizedStudentRole =
+            studentRole === 'faculty' || studentRole === 'instructor' || studentRole === 'doctor'
+                ? 'faculty'
+                : studentRole || 'student';
+
+        // Allow synthetic dev users (dev-*) created by the mock/dev login flow.
+        if ((!studentDoc.exists && !isDevStudentId) || (studentDoc.exists && normalizedStudentRole !== 'student')) {
             return res.status(400).json({ error: 'Invalid studentId.' });
         }
         if (!courseDoc.exists) {
             return res.status(400).json({ error: 'Invalid courseId.' });
         }
-        if (courseDoc.data()?.isOpen !== true) {
-            return res.status(409).json({ error: 'Enrollment is closed for this course.' });
-        }
+        // Enrollment is now open for students regardless of course "isOpen" state.
 
         // Check if enrollment already exists
         const existing = await db.collection('enrollments')

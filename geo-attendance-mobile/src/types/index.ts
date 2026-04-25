@@ -39,6 +39,7 @@ export interface Session {
   startTime?: string;
   endTime?: string;
   isActive?: boolean;
+  attended?: boolean;
 }
 
 export interface Enrollment {

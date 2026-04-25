@@ -5,7 +5,7 @@ import * as Location from 'expo-location';
 import Colors from '../theme/colors';
 import Typography from '../theme/typography';
 import { useAuth } from '../context/AuthContext';
-import { studentApi, attendanceApi } from '../services/api';
+import { sessionApi, attendanceApi } from '../services/api';
 import { type Session } from '../types';
 
 const StudentSessionsScreen: React.FC = () => {
@@ -19,12 +19,43 @@ const StudentSessionsScreen: React.FC = () => {
   const [scannerSessionId, setScannerSessionId] = useState<string | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [checkedInSessions, setCheckedInSessions] = useState<Record<string, boolean>>({});
+  const [autoChecking, setAutoChecking] = useState(false);
+
+  const calculateDistanceMeters = (
+    fromLat: number,
+    fromLng: number,
+    toLat: number,
+    toLng: number
+  ): number => {
+    const toRad = (value: number) => (value * Math.PI) / 180;
+    const earthRadius = 6371000;
+    const dLat = toRad(toLat - fromLat);
+    const dLng = toRad(toLng - fromLng);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(fromLat)) * Math.cos(toRad(toLat)) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return earthRadius * c;
+  };
 
   const fetchSessions = async () => {
     if (!user) return;
     try {
-      const data = await studentApi.getStudentSessions(user.id);
-      setSessions(data);
+      const data = await sessionApi.getSessions();
+      const now = new Date();
+      const visibleSessions = (data as Session[])
+        .filter((session) => {
+          if (!session.date) return false;
+          const sessionDateTime = new Date(`${session.date}T${session.startTime || '00:00'}:00`);
+          return sessionDateTime >= now || session.date === now.toISOString().slice(0, 10);
+        })
+        .sort((a, b) => {
+          const left = new Date(`${a.date || ''}T${a.startTime || '00:00'}:00`).getTime();
+          const right = new Date(`${b.date || ''}T${b.startTime || '00:00'}:00`).getTime();
+          return left - right;
+        });
+      setSessions(visibleSessions);
     } catch (error) {
       console.error('Failed to fetch student sessions:', error);
     } finally {
@@ -74,6 +105,72 @@ const StudentSessionsScreen: React.FC = () => {
       }
     } finally {
       setMarkingId(null);
+    }
+  };
+
+  const handleAutoCheckInNearby = async () => {
+    if (!user) return;
+    const activeSessions = sessions.filter((session) => Boolean(session.isActive) && !session.attended);
+    if (activeSessions.length === 0) {
+      Alert.alert('No Active Sessions', 'There are no active lectures available for check-in right now.');
+      return;
+    }
+
+    setAutoChecking(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Location Permission Needed', 'Please allow location access to use automatic nearby check-in.');
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      let successCount = 0;
+
+      for (const session of activeSessions) {
+        const classroom = session.classroom as (typeof session.classroom & { lat?: number; lng?: number; geofenceRadiusMeters?: number }) | undefined;
+        const lectureLat = classroom?.latitude ?? classroom?.lat;
+        const lectureLng = classroom?.longitude ?? classroom?.lng;
+        const radiusMeters = classroom?.geofenceRadiusMeters ?? 150;
+
+        if (typeof lectureLat === 'number' && typeof lectureLng === 'number') {
+          const distance = calculateDistanceMeters(
+            location.coords.latitude,
+            location.coords.longitude,
+            lectureLat,
+            lectureLng
+          );
+          if (distance > radiusMeters) {
+            continue;
+          }
+        }
+
+        try {
+          await attendanceApi.markAttendance({
+            studentId: user.id,
+            sessionId: session.id,
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude
+          });
+          successCount += 1;
+          setSessions((prev) => prev.map((row) => (row.id === session.id ? { ...row, attended: true } : row)));
+        } catch {
+          // Backend geofence/session validation is the source of truth.
+        }
+      }
+
+      if (successCount > 0) {
+        Alert.alert('Checked In', `Attendance marked for ${successCount} active lecture(s).`);
+      } else {
+        Alert.alert(
+          'No Nearby Active Lecture',
+          'You are currently outside the allowed geofence radius for active lectures.'
+        );
+      }
+    } catch {
+      Alert.alert('Location Error', 'Unable to get your location right now. Please try manual check-in.');
+    } finally {
+      setAutoChecking(false);
     }
   };
 
@@ -177,6 +274,17 @@ const StudentSessionsScreen: React.FC = () => {
         
         {item.isActive ? (
           <View style={{ marginTop: 16 }}>
+            {!item.attended && (
+              <TouchableOpacity
+                style={[styles.button, markingId === item.id && styles.buttonDisabled]}
+                onPress={() => handleMarkAttendance(item.id)}
+                disabled={markingId === item.id}
+              >
+                <Text style={styles.buttonText}>
+                  {markingId === item.id ? 'Checking location...' : 'Check In by Location'}
+                </Text>
+              </TouchableOpacity>
+            )}
             {!checkedInSessions[item.id] ? (
               <TouchableOpacity
                 style={[styles.button, scannerSessionId === item.id && styles.buttonDisabled]}
@@ -207,6 +315,15 @@ const StudentSessionsScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>My Sessions</Text>
+      <TouchableOpacity
+        style={[styles.button, styles.autoButton, autoChecking && styles.buttonDisabled]}
+        onPress={handleAutoCheckInNearby}
+        disabled={autoChecking}
+      >
+        <Text style={styles.buttonText}>
+          {autoChecking ? 'Checking nearby lectures...' : 'Auto Check-In Nearby'}
+        </Text>
+      </TouchableOpacity>
       {loading ? (
         <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} />
       ) : (
@@ -301,6 +418,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 16,
+  },
+  autoButton: {
+    marginTop: 0,
+    marginBottom: 16,
+    backgroundColor: Colors.accent,
   },
   buttonDisabled: {
     opacity: 0.7,

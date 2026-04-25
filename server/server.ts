@@ -14,8 +14,18 @@ const envOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()) ??
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
+  'http://localhost:5175',
   'http://localhost:8081',
   'http://localhost:8082',
+  'http://localhost:8083',
+  'http://localhost:8084',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174',
+  'http://127.0.0.1:5175',
+  'http://127.0.0.1:8081',
+  'http://127.0.0.1:8082',
+  'http://127.0.0.1:8083',
+  'http://127.0.0.1:8084',
   ...envOrigins,
 ];
 

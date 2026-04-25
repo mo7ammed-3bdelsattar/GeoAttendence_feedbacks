@@ -21,21 +21,13 @@ type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Login'>;
 };
 
-const ROLES = [
-  { label: '🎓 Student', value: 'student' },
-  { label: '📚 Instructor', value: 'instructor' },
-  { label: '🛡️ Admin', value: 'admin' },
-];
-
 const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const { login } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'student' | 'instructor' | 'admin'>('student');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
-  const [roleError, setRoleError] = useState<string | null>(null);
 
   const validate = () => {
     const e: typeof errors = {};
@@ -50,22 +42,16 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const handleLogin = async () => {
     if (!validate()) return;
     setLoading(true);
-    setRoleError(null);
     try {
-      await login(email.trim(), password, role as any);
+      await login(email.trim(), password);
       // Navigation handled by AuthContext listener in AppNavigator
     } catch (err: any) {
       const msg =
-        err.message === 'RoleMismatch'
-          ? 'The selected role does not match your account type. Please choose the correct role and try again.'
-          : err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password'
+        err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password'
             ? 'Invalid email or password.'
             : err.code === 'auth/too-many-requests'
               ? 'Too many attempts. Please try again later.'
               : err.message ?? 'Login failed.';
-      if (err.message === 'RoleMismatch') {
-        setRoleError('This account belongs to a different role. Please choose the correct role above.');
-      }
       Alert.alert('Login Failed', msg);
     } finally {
       setLoading(false);
@@ -101,37 +87,6 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Welcome Back</Text>
           <Text style={styles.cardSubtitle}>Sign in to your account</Text>
-
-          {/* Role Selector */}
-          <View style={styles.roleSection}>
-            <Text style={styles.roleLabel}>I am a</Text>
-            <View style={styles.roleRow}>
-              {ROLES.map((r) => (
-                <TouchableOpacity
-                  key={r.value}
-                  style={[
-                    styles.roleChip,
-                    role === r.value && styles.roleChipActive,
-                  ]}
-                  onPress={() => {
-                    setRole(r.value as 'student' | 'instructor' | 'admin');
-                    setRoleError(null);
-                  }}
-                  activeOpacity={0.75}
-                >
-                  <Text
-                    style={[
-                      styles.roleChipText,
-                      role === r.value && styles.roleChipTextActive,
-                    ]}
-                  >
-                    {r.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            {roleError ? <Text style={styles.roleError}>{roleError}</Text> : null}
-          </View>
 
           {/* Fields */}
           <InputField
@@ -280,51 +235,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.textMuted,
     marginBottom: Spacing.lg,
-  },
-
-  // Role selector
-  roleSection: {
-    marginBottom: Spacing.md,
-  },
-  roleLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: Spacing.sm,
-  },
-  roleRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-  },
-  roleChip: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: BorderRadius.md,
-    backgroundColor: Colors.surfaceLight,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    alignItems: 'center',
-    paddingHorizontal: Spacing.xs,
-  },
-  roleChipActive: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primary + '22',
-  },
-  roleChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.textMuted,
-  },
-  roleChipTextActive: {
-    color: Colors.primaryLight,
-  },
-  roleError: {
-    marginTop: Spacing.sm,
-    color: Colors.error,
-    fontSize: 12,
-    fontWeight: '600',
   },
 
   // Forgot
