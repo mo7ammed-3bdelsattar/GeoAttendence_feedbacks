@@ -96,6 +96,11 @@ export const authApi = {
 
   async resetPassword(email: string): Promise<void> {
     await api.post('/auth/reset-password', { email });
+  },
+
+  async updateAvatar(userId: string, avatarUrl: string): Promise<{ success: boolean; avatar: string }> {
+    const response = await api.patch(`/users/${userId}/avatar`, { avatar: avatarUrl });
+    return response.data;
   }
 };
 

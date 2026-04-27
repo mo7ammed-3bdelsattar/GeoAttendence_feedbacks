@@ -55,6 +55,7 @@ router.post('/admin/users', requireRole('admin'), userController.createUser);
 router.patch('/admin/users/:id', requireRole('admin'), userController.updateUser);
 router.delete('/admin/users/:id', requireRole('admin'), userController.deleteUser);
 router.patch('/users/:id/push-token', userController.updatePushToken);
+router.patch('/users/:id/avatar', userController.updateAvatar);
 router.post('/admin/test-notifications', requireRole('admin'), userController.testNotifications);
 
 

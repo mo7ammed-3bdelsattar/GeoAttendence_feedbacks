@@ -140,6 +140,25 @@ export const updatePushToken = async (req: Request, res: Response) => {
   }
 };
 
+export const updateAvatar = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { avatar } = req.body;
+
+    if (avatar === undefined) {
+      return res.status(400).json({ error: 'avatar field is required' });
+    }
+
+    const userId = String(id);
+    await db.collection('users').doc(userId).set({ avatar }, { merge: true });
+
+    res.json({ success: true, avatar });
+  } catch (error: any) {
+    console.error(`[updateAvatar] Error updating avatar for user ${req.params.id}:`, error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 export const testNotifications = async (req: Request, res: Response) => {
   try {
     const { minutes } = req.body;

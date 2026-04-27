@@ -16,6 +16,7 @@ interface AuthState {
   /** Clears tokens and auth state (used by logout and when token is missing). */
   clearSession: () => void;
   resetPassword: (email: string) => Promise<void>;
+  updateUserAvatar: (avatarUrl: string) => void;
   clearError: () => void;
 }
 
@@ -58,6 +59,12 @@ export const useAuthStore = create<AuthState>()(
         } catch (e) {
           set({ error: e instanceof Error ? e.message : 'Failed', isLoading: false });
           throw e;
+        }
+      },
+      updateUserAvatar: (avatarUrl) => {
+        const currentUser = get().user;
+        if (currentUser) {
+          set({ user: { ...currentUser, avatar: avatarUrl } });
         }
       },
       clearError: () => set({ error: null }),

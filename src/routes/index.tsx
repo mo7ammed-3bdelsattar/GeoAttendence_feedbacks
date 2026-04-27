@@ -22,8 +22,9 @@ import { AdminCoursesPage } from '../pages/admin/AdminCoursesPage.tsx';
 import { AdminClassroomsPage } from '../pages/admin/AdminClassroomsPage.tsx';
 import { AdminSessionsPage } from '../pages/admin/AdminSessionsPage.tsx';
 import { AdminFeedbackAuditPage } from '../pages/admin/AdminFeedbackAuditPage.tsx';
+import { AdminProfilePage } from '../pages/admin/AdminProfilePage.tsx';
 import { FacultySessionsPage } from '../pages/faculty/FacultySessionsPage.tsx';
-import { FacultyFeedbackPage } from '../pages/faculty/FacultyFeedbackPage.tsx';
+import { FacultyProfilePage } from '../pages/faculty/FacultyProfilePage.tsx';
 import { AttendanceSummaryPage } from '../pages/faculty/AttendanceSummaryPage.tsx';
 import { AiChatPage } from '../pages/common/AiChatPage.tsx';
 import { RoleGuard } from '../components/RoleGuard.tsx';
@@ -92,6 +93,7 @@ export const router = createBrowserRouter([
       </ProtectedRoute>
     ),
   },
+
   {
     path: '/student/sessions',
     element: <ProtectedRoute allowedRoles={['student']}><StudentSessionsPage /></ProtectedRoute>,
@@ -131,11 +133,11 @@ export const router = createBrowserRouter([
     ),
   },
   {
-    path: '/faculty/ratings',
+    path: '/faculty/profile',
     element: (
       <ProtectedRoute>
-        <RoleGuard requiredRole="faculty" screen="Faculty Feedback">
-          <FacultyFeedbackPage />
+        <RoleGuard requiredRole="faculty" screen="Faculty Profile">
+          <FacultyProfilePage />
         </RoleGuard>
       </ProtectedRoute>
     ),
@@ -154,6 +156,16 @@ export const router = createBrowserRouter([
   {
     path: '/admin',
     element: <ProtectedRoute allowedRoles={['admin']}><AdminOverviewPage /></ProtectedRoute>,
+  },
+  {
+    path: '/admin/profile',
+    element: (
+      <ProtectedRoute>
+        <RoleGuard requiredRole="admin" screen="Admin Profile">
+          <AdminProfilePage />
+        </RoleGuard>
+      </ProtectedRoute>
+    ),
   },
   {
     path: '/admin/users',

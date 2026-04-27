@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 import { authApi } from '../../services/api.ts';
 import { compressImage } from '../../utils/image.ts';
 
-export function StudentProfilePage() {
+export function AdminProfilePage() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const updateUserAvatar = useAuthStore((s) => s.updateUserAvatar);
@@ -36,13 +36,9 @@ export function StudentProfilePage() {
     setIsUploading(true);
 
     try {
-      // Compress the image to a small base64 string
       const base64Image = await compressImage(file);
-      
-      // Send base64 directly to backend
       await authApi.updateAvatar(user.id, base64Image);
       
-      // Update Local State
       updateUserAvatar(base64Image);
       toast.success('Profile picture updated successfully');
       
@@ -53,7 +49,6 @@ export function StudentProfilePage() {
       setIsUploading(false);
       URL.revokeObjectURL(objectUrl);
       setPreviewUrl(null);
-      // Reset input so the same file can be selected again
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -103,7 +98,7 @@ export function StudentProfilePage() {
               <h2 className="font-semibold text-gray-900 truncate">{user.name}</h2>
               <p className="text-sm text-gray-500 truncate">{user.email}</p>
               <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
-                Student
+                Admin
               </span>
             </div>
 

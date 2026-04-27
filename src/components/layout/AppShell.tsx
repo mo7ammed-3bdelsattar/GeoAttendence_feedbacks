@@ -37,11 +37,12 @@ const adminNav = [
   { to: '/admin/courses', label: 'Courses', icon: BookOpen },
   { to: '/admin/classrooms', label: 'Classrooms', icon: MapPin },
   { to: '/admin/feedback', label: 'Course Feedback', icon: MessageSquare },
+  { to: '/admin/profile', label: 'Profile', icon: User },
 ];
 
 const facultyNav = [
   { to: '/faculty/sessions', label: 'My Sessions', icon: CalendarDays },
-  { to: '/faculty/ratings', label: 'My Ratings', icon: Star },
+  { to: '/faculty/profile', label: 'Profile', icon: User },
 ];
 
 function getNav(role: UserRole) {
