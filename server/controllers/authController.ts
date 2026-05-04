@@ -3,7 +3,7 @@ import { db, auth as adminAuth } from '../config/firebase-admin';
 
 export const login = async (req: Request, res: Response) => {
   try {
-    const { idToken, role } = req.body;
+    const { idToken } = req.body;
     const decodedToken = await adminAuth.verifyIdToken(idToken);
     const { uid, email } = decodedToken;
     const userDoc = await db.collection('users').doc(uid).get();
@@ -12,15 +12,14 @@ export const login = async (req: Request, res: Response) => {
     if (!userDoc.exists || !userData) {
       return res.status(404).json({ error: 'User profile not found' });
     }
-    if (userData?.role !== role) {
-      return res.status(403).json({ error: `Unauthorized: Expected ${role} role` });
-    }
 
     res.json({
       id: uid,
       name: userData.name || email?.split('@')[0],
       email: email,
-      role: userData.role
+      role: userData.role,
+      avatar: userData.avatar || userData.profileImage || null,
+      profileImage: userData.profileImage || userData.avatar || null
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

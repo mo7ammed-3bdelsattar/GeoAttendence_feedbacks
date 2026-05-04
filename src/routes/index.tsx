@@ -5,9 +5,9 @@ import type { UserRole } from '../types/index.ts';
 
 import { LoginPage } from '../pages/auth/LoginPage.tsx';
 import { ForgotPasswordPage } from '../pages/auth/ForgotPasswordPage.tsx';
+import { ProfilePage } from '../pages/profile/ProfilePage.tsx';
 
 import { StudentHomePage } from '../pages/student/StudentHomePage.tsx';
-import { StudentProfilePage } from '../pages/student/StudentProfilePage.tsx';
 import { StudentFeedbackPage } from '../pages/student/StudentFeedbackPage.tsx';
 import { StudentSessionsPage } from '../pages/student/StudentSessionsPage.tsx';
 import { StudentSchedulePage } from '../pages/student/StudentSchedulePage.tsx';
@@ -24,6 +24,12 @@ import { AdminFeedbackAuditPage } from '../pages/admin/AdminFeedbackAuditPage.ts
 import { FacultySessionsPage } from '../pages/faculty/FacultySessionsPage.tsx';
 import { FacultyFeedbackPage } from '../pages/faculty/FacultyFeedbackPage.tsx';
 
+const resolveDashboardPath = (role: UserRole | string) => {
+  if (role === 'student') return '/student';
+  if (role === 'faculty' || role === 'doctor') return '/faculty';
+  return '/admin';
+};
+
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: UserRole[] }) {
   const user = useAuthStore((s) => s.user);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -34,8 +40,7 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
   }
 
   if (!allowedRoles.includes(user.role)) {
-    const base = user.role === 'student' ? '/student' : user.role === 'faculty' ? '/faculty' : '/admin';
-    return <Navigate to={base} replace />;
+    return <Navigate to={resolveDashboardPath(user.role)} replace />;
   }
   return <>{children}</>;
 }
@@ -45,8 +50,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   if (isAuthenticated && user) {
-    const base = user.role === 'student' ? '/student' : user.role === 'faculty' ? '/faculty' : '/admin';
-    return <Navigate to={base} replace />;
+    return <Navigate to={resolveDashboardPath(user.role)} replace />;
   }
 
   return <>{children}</>;
@@ -56,14 +60,14 @@ export const router = createBrowserRouter([
   { path: '/', element: <Navigate to="/login" replace /> },
   { path: '/login', element: <PublicRoute><LoginPage /></PublicRoute> },
   { path: '/forgot-password', element: <PublicRoute><ForgotPasswordPage /></PublicRoute> },
+  {
+    path: '/profile',
+    element: <ProtectedRoute allowedRoles={['student', 'faculty', 'admin']}><ProfilePage /></ProtectedRoute>,
+  },
 
   {
     path: '/student',
     element: <ProtectedRoute allowedRoles={['student']}><StudentHomePage /></ProtectedRoute>,
-  },
-  {
-    path: '/student/profile',
-    element: <ProtectedRoute allowedRoles={['student']}><StudentProfilePage /></ProtectedRoute>,
   },
   {
     path: '/student/feedback',

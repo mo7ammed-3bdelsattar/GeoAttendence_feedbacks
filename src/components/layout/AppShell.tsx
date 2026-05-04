@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from 'react';
+import { type ChangeEvent, type ReactNode, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -6,6 +6,7 @@ import {
   Home,
   User,
   LogOut,
+  Upload,
   BookOpen,
   MapPin,
   CalendarDays,
@@ -23,12 +24,13 @@ import { cn } from '../../utils/cn.ts';
 const studentNav = [
   { to: '/student', label: 'Home', icon: Home },
   { to: '/student/schedule', label: 'My Schedule', icon: CalendarDays },
-  { to: '/student/profile', label: 'Profile', icon: User },
+  { to: '/profile', label: 'Profile', icon: User },
   { to: '/student/feedback', label: 'Feedback', icon: MessageSquare },
 ];
 
 const adminNav = [
   { to: '/admin', label: 'Overview', icon: LayoutDashboard },
+  { to: '/profile', label: 'Profile', icon: User },
   { to: '/admin/users', label: 'Users', icon: Users },
   { to: '/admin/enrollments', label: 'Enrollments', icon: BookOpen },
   { to: '/admin/sessions', label: 'Sessions', icon: CalendarDays },
@@ -41,6 +43,7 @@ const adminNav = [
 const facultyNav = [
   { to: '/faculty/sessions', label: 'My Sessions', icon: CalendarDays },
   { to: '/faculty/ratings', label: 'My Ratings', icon: Star },
+  { to: '/profile', label: 'Profile', icon: User },
 ];
 
 function getNav(role: UserRole) {
@@ -59,7 +62,10 @@ export function AppShell({ children, title }: AppShellProps) {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const uploadProfileImage = useAuthStore((s) => s.uploadProfileImage);
+  const isLoading = useAuthStore((s) => s.isLoading);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const role = user?.role ?? 'student';
   const nav = getNav(role);
 
@@ -68,6 +74,35 @@ export function AppShell({ children, title }: AppShellProps) {
     await logout();
     toast.success('Logged out successfully');
     navigate('/login', { replace: true });
+  };
+
+  const handleAvatarUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = new Set(['image/jpeg', 'image/png']);
+    const maxSize = 2 * 1024 * 1024;
+    if (!allowedTypes.has(file.type)) {
+      toast.error('Only JPG or PNG files are allowed.');
+      event.target.value = '';
+      return;
+    }
+    if (file.size > maxSize) {
+      toast.error('Image size must be 2MB or less.');
+      event.target.value = '';
+      return;
+    }
+
+    const loadingToast = toast.loading('Uploading profile image...');
+    try {
+      await uploadProfileImage(file);
+      toast.success('Profile image updated.', { id: loadingToast });
+      setUserMenuOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to upload image.', { id: loadingToast });
+    } finally {
+      event.target.value = '';
+    }
   };
 
   return (
@@ -110,9 +145,17 @@ export function AppShell({ children, title }: AppShellProps) {
               aria-expanded={userMenuOpen}
               aria-haspopup="true"
             >
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <User className="h-4 w-4 text-primary" />
-              </div>
+              {user?.avatar ? (
+                <img
+                  src={user.avatar}
+                  alt={`${user.name ?? 'User'} avatar`}
+                  className="w-8 h-8 rounded-full object-cover border border-gray-200"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <User className="h-4 w-4 text-primary" />
+                </div>
+              )}
               <span className="hidden sm:inline text-sm font-medium text-gray-700 max-w-[120px] truncate">
                 {user?.name ?? user?.email}
               </span>
@@ -135,6 +178,15 @@ export function AppShell({ children, title }: AppShellProps) {
                   </div>
                   <button
                     type="button"
+                    disabled={isLoading}
+                    onClick={() => imageInputRef.current?.click()}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                  >
+                    <Upload className="h-4 w-4 shrink-0" />
+                    Upload Profile Image
+                  </button>
+                  <button
+                    type="button"
                     onClick={handleLogout}
                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-b-lg"
                   >
@@ -144,6 +196,13 @@ export function AppShell({ children, title }: AppShellProps) {
                 </div>
               </>
             )}
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/jpeg,image/png"
+              className="hidden"
+              onChange={handleAvatarUpload}
+            />
           </div>
         </header>
         <main className="flex-1 p-4 pb-24 md:pb-4">{children}</main>

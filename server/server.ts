@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'node:path';
 import apiRoutes from './routes/apiRoutes';
 
 dotenv.config();
@@ -15,6 +16,7 @@ app.use(cors({
 }));
 
 app.use(express.json());
+app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
 
 // Routes
 app.use('/api', apiRoutes);
@@ -27,6 +29,12 @@ app.get('/', (req: Request, res: Response) => {
 // Error handling
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   console.error('[SERVER ERROR]', err);
+  if (err?.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({ error: 'File too large. Maximum size is 2MB.' });
+  }
+  if (err?.message?.includes?.('Only jpg and png')) {
+    return res.status(400).json({ error: 'Only jpg and png images are allowed.' });
+  }
   res.status(500).json({ error: 'Internal Server Error', message: err.message });
 });
 

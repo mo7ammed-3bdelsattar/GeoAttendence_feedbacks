@@ -10,6 +10,13 @@ import type { Feedback } from '../types/feedback.ts';
 import { getAccessToken } from '../utils/storage.ts';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const ASSET_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '');
+
+function normalizeAvatarUrl(avatar?: string | null): string | undefined {
+  if (!avatar) return undefined;
+  if (/^https?:\/\//i.test(avatar)) return avatar;
+  return `${ASSET_BASE_URL}${avatar.startsWith('/') ? '' : '/'}${avatar}`;
+}
 
 const api: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
@@ -29,18 +36,72 @@ api.interceptors.request.use((config) => {
 });
 
 export const authApi = {
-  async login(email: string, password: string, role: UserRole): Promise<User> {
+  async login(email: string, password: string): Promise<User> {
     const userCredential = await signInWithEmailAndPassword(clientAuth, email, password);
     const firebaseUser = userCredential.user;
     const idToken = await firebaseUser.getIdToken();
-    const response = await api.post('/auth/login', { idToken, role });
+    const response = await api.post('/auth/login', { idToken });
     const userData = response.data;
 
     return {
       id: firebaseUser.uid,
       name: userData.name || firebaseUser.displayName || email.split('@')[0],
       email: firebaseUser.email || email,
-      role: userData.role
+      role: userData.role,
+      avatar: normalizeAvatarUrl(userData.avatar || userData.profileImage)
+    };
+  },
+
+  async getCurrentUser(): Promise<User> {
+    const response = await api.get('/profile');
+    const userData = response.data;
+    return {
+      id: userData.id,
+      name: userData.name,
+      email: userData.email,
+      role: userData.role,
+      avatar: normalizeAvatarUrl(userData.avatar || userData.profileImage)
+    };
+  },
+
+  async uploadProfileImage(file: File): Promise<User> {
+    const formData = new FormData();
+    formData.append('image', file);
+    const response = await api.post('/upload-profile-image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    const userData = response.data;
+    return {
+      id: userData.id,
+      name: userData.name,
+      email: userData.email,
+      role: userData.role,
+      avatar: normalizeAvatarUrl(userData.avatar || userData.profileImage)
+    };
+  },
+
+  async updateProfile(payload: { name: string }): Promise<User> {
+    const response = await api.put('/profile', payload);
+    const userData = response.data;
+    return {
+      id: userData.id,
+      name: userData.name,
+      email: userData.email,
+      role: userData.role,
+      avatar: normalizeAvatarUrl(userData.avatar || userData.profileImage)
+    };
+  },
+
+  async getProfile(): Promise<User & { summary?: Record<string, number> }> {
+    const response = await api.get('/profile');
+    const userData = response.data;
+    return {
+      id: userData.id,
+      name: userData.name,
+      email: userData.email,
+      role: userData.role,
+      avatar: normalizeAvatarUrl(userData.avatar || userData.profileImage),
+      summary: userData.summary
     };
   },
 

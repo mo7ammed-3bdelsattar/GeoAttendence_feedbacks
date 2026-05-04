@@ -42,3 +42,13 @@ export function requireStudentAuth(req: Request, res: Response, next: NextFuncti
   (req as any).currentUser = user;
   return next();
 }
+
+export function requireAuth(req: Request, res: Response, next: NextFunction) {
+  const user = getAuthenticatedUser(req);
+  if (!user?.uid) {
+    return res.status(401).json({ error: 'Unauthorized: Invalid token.' });
+  }
+
+  (req as any).currentUser = user;
+  return next();
+}

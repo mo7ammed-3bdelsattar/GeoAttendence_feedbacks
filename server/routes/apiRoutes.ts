@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import multer from 'multer';
 import * as userController from '../controllers/userController';
 import * as authController from '../controllers/authController';
 import * as enrollmentController from '../controllers/enrollmentController';
@@ -10,9 +11,20 @@ import * as feedbackController from '../controllers/feedbackController';
 import * as attendanceController from '../controllers/attendanceController';
 import * as notificationController from '../controllers/notificationController';
 import { getMySchedule, getStudentCourses, getStudentDashboard, studentScheduleController } from '../controllers/studentController';
-import { requireStudentAuth } from '../middleware/authGuard';
+import { requireAuth, requireStudentAuth } from '../middleware/authGuard';
 
 const router = Router();
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowedMimeTypes = new Set(['image/jpeg', 'image/png']);
+    if (!allowedMimeTypes.has(file.mimetype)) {
+      return cb(new Error('Only jpg and png images are allowed.'));
+    }
+    return cb(null, true);
+  },
+});
 
 // Auth routes
 router.post('/auth/login', authController.login);
@@ -23,6 +35,11 @@ router.get('/admin/users', userController.getUsers);
 router.post('/admin/users', userController.createUser);
 router.patch('/admin/users/:id', userController.updateUser);
 router.delete('/admin/users/:id', userController.deleteUser);
+router.get('/profile', requireAuth, userController.getProfile);
+router.put('/profile', requireAuth, userController.updateProfile);
+router.post('/upload-profile-image', requireAuth, upload.single('image'), userController.uploadProfileImage);
+router.get('/users/me', requireAuth, userController.getCurrentUser);
+router.post('/users/me/avatar', requireAuth, upload.single('image'), userController.uploadMyAvatar);
 
 // Department routes
 router.get('/admin/departments', departmentController.getDepartments);
