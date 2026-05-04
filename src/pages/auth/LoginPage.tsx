@@ -3,8 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { GraduationCap, Mail, Lock, ShieldCheck, Globe, CheckCircle2 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore.ts';
 import { FormInput } from '../../components/forms/FormInput.tsx';
-import { FormSelect } from '../../components/forms/FormSelect.tsx';
-import type { UserRole } from '../../types/index.ts';
 import toast from 'react-hot-toast';
 
 interface LoginFormValues {
@@ -28,9 +26,10 @@ export function LoginPage() {
     clearError();
     const loadingToast = toast.loading('Authenticating credentials...');
     try {
-      const user = await login(values.email, values.password);
+      await login(values.email, values.password);
       toast.success('Access Granted. Welcome back!', { id: loadingToast });
-      const base = user.role === 'student' ? '/student' : user.role === 'faculty' ? '/faculty' : '/admin';
+      const role = useAuthStore.getState().user?.role;
+      const base = role === 'student' ? '/student' : role === 'faculty' ? '/faculty' : '/admin';
       navigate(base, { replace: true });
     } catch (e: any) {
       const message = e?.message || error || 'Authentication failed. Please check your credentials.';

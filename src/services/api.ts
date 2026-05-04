@@ -1,11 +1,9 @@
 import axios, { type AxiosInstance } from 'axios';
 import {
-  signInWithEmailAndPassword,
-  signOut,
-  sendPasswordResetEmail
+  signInWithEmailAndPassword
 } from 'firebase/auth';
 import { auth as clientAuth } from '../config/firebase';
-import { getAccessToken } from '../utils/storage.ts';
+import { getAccessToken, setAccessToken } from '../utils/storage.ts';
 import type { Attendance, Classroom, Course, Department, Enrollment, Session, User, UserRole } from '../types/index.ts';
 import type { Feedback } from '../types/feedback.ts';
 
@@ -28,6 +26,25 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    if (error.response?.status === 401 && clientAuth.currentUser && !originalRequest._retry) {
+      originalRequest._retry = true;
+      try {
+        const newToken = await clientAuth.currentUser.getIdToken(true);
+        setAccessToken(newToken);
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        return Promise.reject(refreshError);
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 const getApiMessage = (error: any, fallback: string) => {
   return error?.response?.data?.message || error?.response?.data?.error || fallback;
 };
@@ -38,8 +55,11 @@ export const authApi = {
       const userCredential = await signInWithEmailAndPassword(clientAuth, email, password);
       const token = await userCredential.user.getIdToken();
       
-      const response = await api.post('/auth/login', { token, email });
+      const response = await api.post('/auth/login', { token });
       const userData = response.data;
+  
+      const finalToken = userData.token || token;
+      setAccessToken(finalToken);
   
       return {
         user: {
@@ -48,12 +68,14 @@ export const authApi = {
           email: userData.email,
           role: userData.role
         },
-        token: userData.token || token
+        token: finalToken
       };
     } catch (error: any) {
       try {
         const response = await api.post('/auth/login', { email, password });
         const userData = response.data;
+        setAccessToken(userData.token);
+        
         return {
           user: {
             id: userData.id,
@@ -124,7 +146,7 @@ export const adminApi = {
   },
 
   async getOpenCourses(): Promise<Course[]> {
-    const response = await api.get('/courses', { params: { open: true } });
+    const response = await api.get('/admin/courses', { params: { open: true } });
     return response.data;
   },
 
@@ -159,11 +181,6 @@ export const adminApi = {
 
   async deleteClassroom(id: string): Promise<void> {
     await api.delete(`/admin/classrooms/${id}`);
-  },
-
-  async getOpenCourses(): Promise<Course[]> {
-    const response = await api.get('/admin/courses');
-    return response.data;
   },
 };
 
@@ -427,66 +444,11 @@ export const studentApi = {
   }
 };
 
-export const chatbotApi = {
-  async ask(query: string): Promise<{ response: string; policyTitle?: string }> {
-    const response = await api.post('/chatbot/ask', { query });
-    return response.data.data;
+export const aiApi = {
+  async chat(payload: { message: string; messages?: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> }): Promise<{ message: string; model?: string }> {
+    const response = await api.post('/ai/chat', payload);
+    return response.data;
   },
-  async getPolicies(): Promise<any[]> {
-    const response = await api.get('/admin/policies');
-    return response.data.data;
-  },
-  async upsertPolicy(payload: any): Promise<any> {
-    const response = await api.post('/admin/policies', payload);
-    return response.data.data;
-  },
-  async deletePolicy(id: string): Promise<void> {
-    await api.delete(`/admin/policies/${id}`);
-  }
-};
-
-export const chatApi = {
-  async getMyChats(userId: string, role: string): Promise<any[]> {
-    const response = await api.get('/chats', { params: { userId, role } });
-    return response.data.data;
-  },
-  async getMessages(chatId: string): Promise<any[]> {
-    const response = await api.get(`/chats/${chatId}/messages`);
-    return response.data.data;
-  },
-  async sendMessage(payload: { studentId: string; senderId: string; text: string; isAdmin?: boolean }): Promise<any> {
-    const response = await api.post('/chats/messages', payload);
-    return response.data.data;
-  }
-};
-
-export const groupApi = {
-  async getGroups(courseId?: string): Promise<any[]> {
-    const response = await api.get('/groups', { params: { courseId } });
-    return response.data.data;
-  },
-  async createGroup(payload: any): Promise<any> {
-    const response = await api.post('/admin/groups', payload);
-    return response.data.data;
-  },
-  async updateGroup(id: string, payload: any): Promise<any> {
-    const response = await api.patch(`/admin/groups/${id}`, payload);
-    return response.data.data;
-  },
-  async deleteGroup(id: string): Promise<void> {
-    await api.delete(`/admin/groups/${id}`);
-  }
-};
-
-export const reportApi = {
-  async getInstructorReport(facultyId: string): Promise<any> {
-    const response = await api.get(`/reports/instructor/${facultyId}`);
-    return response.data.data;
-  },
-  async getAdminReport(): Promise<any> {
-    const response = await api.get('/reports/admin');
-    return response.data.data;
-  }
 };
 
 export default api;

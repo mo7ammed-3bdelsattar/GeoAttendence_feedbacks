@@ -18,11 +18,7 @@ const api = axios.create({
 });
 
 const normalizeApiError = (error: any, fallback: string) => {
-  const code = error?.response?.data?.error;
   const message = error?.response?.data?.message || error?.response?.data?.error;
-  if (code === 'role_mismatch' || message === 'Role mismatch.') {
-    return 'The selected role does not match the account type. Please choose the correct role.';
-  }
   return message || fallback;
 };
 
@@ -35,6 +31,25 @@ api.interceptors.request.use(
     return config;
   },
   (error) => Promise.reject(error)
+);
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    if (error.response?.status === 401 && clientAuth.currentUser && !originalRequest._retry) {
+      originalRequest._retry = true;
+      try {
+        const newToken = await clientAuth.currentUser.getIdToken(true);
+        await AsyncStorage.setItem('userToken', newToken);
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        return Promise.reject(refreshError);
+      }
+    }
+    return Promise.reject(error);
+  }
 );
 
 export interface User {
@@ -63,7 +78,7 @@ export const authApi = {
       const idToken = await userCredential.user.getIdToken();
       
       console.log('[AUTH] Firebase success, syncing with backend...');
-      const response = await api.post('/auth/login', { token: idToken, email });
+      const response = await api.post('/auth/login', { token: idToken });
       const userData = response.data;
   
       return {
@@ -236,12 +251,12 @@ export const sessionApi = {
   },
 
   startSessionById: async (sessionId: string) => {
-    const response = await api.post('/sessions/start', { sessionId });
+    const response = await api.post(`/sessions/${sessionId}/start`);
     return response.data;
   },
 
   endSession: async (sessionId: string) => {
-    const response = await api.post('/sessions/end', { sessionId });
+    const response = await api.post(`/sessions/${sessionId}/end`);
     return response.data;
   },
 
@@ -397,31 +412,24 @@ export const studentApi = {
     const response = await api.get(`/student/courses/${studentId}`);
     return response.data;
   },
+  getAllCourses: async () => {
+    const response = await api.get('/admin/courses');
+    return response.data;
+  },
+  saveCourses: async (studentId: string, courseIds: string[]) => {
+    const response = await api.post('/student/courses', { studentId, courseIds });
+    return response.data;
+  },
   getStudentDashboard: async (studentId: string) => {
     const response = await api.get(`/student/dashboard/${studentId}`);
     return response.data;
   }
 };
 
-export const chatbotApi = {
-  ask: async (query: string) => {
-    const response = await api.post('/chatbot/ask', { query });
-    return response.data.data;
-  }
-};
-
-export const chatApi = {
-  getMyChats: async (userId: string, role: string) => {
-    const response = await api.get('/chats', { params: { userId, role } });
-    return response.data.data;
-  },
-  getMessages: async (chatId: string) => {
-    const response = await api.get(`/chats/${chatId}/messages`);
-    return response.data.data;
-  },
-  sendMessage: async (payload: { studentId: string; senderId: string; text: string; isAdmin?: boolean }) => {
-    const response = await api.post('/chats/messages', payload);
-    return response.data.data;
+export const aiApi = {
+  chat: async (payload: { message: string; messages?: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> }) => {
+    const response = await api.post('/ai/chat', payload);
+    return response.data;
   }
 };
 

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { User, UserRole } from '../types/index.ts';
+import type { User } from '../types/index.ts';
 import { authApi } from '../services/api.ts';
 import { clearAuth, setAccessToken } from '../utils/storage.ts';
 
@@ -9,7 +9,7 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<User>;
+  login: (email: string, password: string) => Promise<void>;
   /** Restores the user session using the token in storage. */
   restoreSession: (user: User, token: string) => void;
   logout: () => Promise<void>;

@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Colors from '../theme/colors';
 import { RootStackParamList, AdminTabParamList, InstructorTabParamList, StudentTabParamList } from './types';
+import { navigationRef } from './navigationRef';
 
 import { useAuth } from '../context/AuthContext';
 import LoginScreen from '../screens/LoginScreen';
@@ -30,8 +31,10 @@ import InstructorReportsScreen from '../screens/InstructorReportsScreen';
 import StudentDashboardScreen from '../screens/StudentDashboardScreen';
 import StudentSessionsScreen from '../screens/StudentSessionsScreen';
 import StudentFeedbackScreen from '../screens/StudentFeedbackScreen';
-import StudentChatbotScreen from '../screens/StudentChatbotScreen';
-import StudentChatScreen from '../screens/StudentChatScreen';
+import AiChatScreen from '../screens/AiChatScreen';
+import StudentCoursePickerScreen from '../screens/StudentCoursePickerScreen';
+import { MiniChatWidget } from '../components/MiniChatWidget';
+import { BackHandler, Alert } from 'react-native';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const AdminTab = createBottomTabNavigator<AdminTabParamList>();
@@ -99,11 +102,41 @@ const SplashScreen: React.FC = () => (
 const AppNavigator: React.FC = () => {
   const { user, loading } = useAuth();
   usePushNotifications(user);
+  const [currentRouteName, setCurrentRouteName] = useState<string | undefined>(undefined);
+
+  React.useEffect(() => {
+    const onBackPress = () => {
+      // If we are at the top level of the stack, maybe show an exit alert 
+      // or prevent exit if it's annoying the user.
+      const canGoBack = navigationRef.canGoBack();
+      if (!canGoBack && user) {
+        Alert.alert('Hold on!', 'Are you sure you want to exit the app?', [
+          { text: 'Cancel', onPress: () => null, style: 'cancel' },
+          { text: 'YES', onPress: () => BackHandler.exitApp() },
+        ]);
+        return true; // Prevent default behavior
+      }
+      return false; // Let navigation handle it
+    };
+
+    BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => BackHandler.removeEventListener('hardwareBackPress', onBackPress);
+  }, [user]);
+
+  const shouldShowFloatingAi = useMemo(() => {
+    if (!user) return false;
+    // We show the mini chat everywhere when logged in
+    return true;
+  }, [user]);
 
   if (loading) return <SplashScreen />;
 
   return (
-    <NavigationContainer>
+    <NavigationContainer
+      ref={navigationRef}
+      onReady={() => setCurrentRouteName(navigationRef.getCurrentRoute()?.name)}
+      onStateChange={() => setCurrentRouteName(navigationRef.getCurrentRoute()?.name)}
+    >
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
@@ -112,13 +145,17 @@ const AppNavigator: React.FC = () => {
         }}
       >
         {user ? (
-          user.role === 'admin' ? (
-            <Stack.Screen name="AdminTabs" component={AdminTabs} />
-          ) : user.role === 'instructor' ? (
-            <Stack.Screen name="InstructorTabs" component={InstructorTabs} />
-          ) : (
-            <Stack.Screen name="StudentTabs" component={StudentTabs} />
-          )
+          <>
+            {user.role === 'admin' ? (
+              <Stack.Screen name="AdminTabs" component={AdminTabs} />
+            ) : user.role === 'instructor' ? (
+              <Stack.Screen name="InstructorTabs" component={InstructorTabs} />
+            ) : (
+              <Stack.Screen name="StudentTabs" component={StudentTabs} />
+            )}
+            <Stack.Screen name="AiChat" component={AiChatScreen} />
+            <Stack.Screen name="StudentCoursePicker" component={StudentCoursePickerScreen} />
+          </>
         ) : (
           <>
             <Stack.Screen name="Login" component={LoginScreen} />
@@ -126,6 +163,8 @@ const AppNavigator: React.FC = () => {
           </>
         )}
       </Stack.Navigator>
+
+      {shouldShowFloatingAi ? <MiniChatWidget /> : null}
     </NavigationContainer>
   );
 };

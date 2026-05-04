@@ -21,21 +21,13 @@ type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Login'>;
 };
 
-const ROLES = [
-  { label: '🎓 Student', value: 'student' },
-  { label: '📚 Instructor', value: 'instructor' },
-  { label: '🛡️ Admin', value: 'admin' },
-];
-
 const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const { login } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'student' | 'instructor' | 'admin'>('student');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
-  const [roleError, setRoleError] = useState<string | null>(null);
 
   const validate = () => {
     const e: typeof errors = {};
@@ -56,10 +48,10 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     } catch (err: any) {
       const msg =
         err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password'
-          ? 'Invalid email or password.'
-          : err.code === 'auth/too-many-requests'
-            ? 'Too many attempts. Please try again later.'
-            : err.message ?? 'Login failed.';
+            ? 'Invalid email or password.'
+            : err.code === 'auth/too-many-requests'
+              ? 'Too many attempts. Please try again later.'
+              : err.message ?? 'Login failed.';
       Alert.alert('Login Failed', msg);
     } finally {
       setLoading(false);
@@ -243,51 +235,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.textMuted,
     marginBottom: Spacing.lg,
-  },
-
-  // Role selector
-  roleSection: {
-    marginBottom: Spacing.md,
-  },
-  roleLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: Spacing.sm,
-  },
-  roleRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-  },
-  roleChip: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: BorderRadius.md,
-    backgroundColor: Colors.surfaceLight,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    alignItems: 'center',
-    paddingHorizontal: Spacing.xs,
-  },
-  roleChipActive: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primary + '22',
-  },
-  roleChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.textMuted,
-  },
-  roleChipTextActive: {
-    color: Colors.primaryLight,
-  },
-  roleError: {
-    marginTop: Spacing.sm,
-    color: Colors.error,
-    fontSize: 12,
-    fontWeight: '600',
   },
 
   // Forgot

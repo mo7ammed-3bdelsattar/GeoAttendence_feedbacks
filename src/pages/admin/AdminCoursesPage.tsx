@@ -1,17 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import {
-  Plus,
-  Search,
-  Pencil,
   Trash2,
-  BookOpen,
-  X,
-  ChevronLeft,
-  ChevronRight,
-  ChevronUp,
-  ChevronDown,
-  LayoutGrid,
-  List,
   Loader2,
   Lock,
   LockOpen
@@ -109,7 +98,7 @@ export function AdminCoursesPage() {
     setDeletingId(course.id);
     try {
       await adminApi.deleteCourse(course.id);
-      setEnrollments((prev) => prev.filter((item) => item.id !== course.id));
+      setCourses((prev) => prev.filter((item) => item.id !== course.id));
       toast.success('Course deleted successfully.');
     } catch (error: any) {
       toast.error(error?.response?.data?.error || 'Failed to delete course.');
@@ -196,10 +185,6 @@ export function AdminCoursesPage() {
     );
   };
 
-  const departmentOptions = departments.map((d) => ({
-    value: d.id,
-    label: `${d.code} — ${d.name}`,
-  }));
 
   return (
     <AppShell title="Courses">

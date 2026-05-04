@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, LogOut, User } from 'lucide-react';
+import { Bell, Bot, LogOut, User } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../../stores/authStore.ts';
 import { cn } from '../../utils/cn.ts';
@@ -24,6 +24,14 @@ export function Header() {
         <span className="font-semibold text-primary text-lg">Geo-Attendance</span>
       </div>
       <div className="flex items-center gap-3">
+        <button
+          type="button"
+          className="p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"
+          aria-label="AI Assistant"
+          onClick={() => navigate('/ai-chat')}
+        >
+          <Bot className="h-5 w-5 text-gray-600" />
+        </button>
         <button
           type="button"
           className="p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"

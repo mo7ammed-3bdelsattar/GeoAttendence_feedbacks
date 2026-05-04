@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import * as userController from '../controllers/userController';
 import * as authController from '../controllers/authController';
+import { loginMock } from '../controllers/authControllerMock';
 import * as enrollmentController from '../controllers/enrollmentController';
 import * as departmentController from '../controllers/departmentController';
 import * as courseController from '../controllers/courseController';
@@ -9,15 +10,14 @@ import * as sessionController from '../controllers/sessionController';
 import * as feedbackController from '../controllers/feedbackController';
 import * as attendanceController from '../controllers/attendanceController';
 import * as notificationController from '../controllers/notificationController';
-import * as chatbotController from '../controllers/chatbotController';
-import * as chatController from '../controllers/chatController';
-import * as groupController from '../controllers/groupController';
-import * as reportController from '../controllers/reportController';
+import * as aiController from '../controllers/aiController';
 import { getMySchedule, getStudentCourses, getStudentDashboard, studentScheduleController } from '../controllers/studentController';
 import { requireStudentAuth } from '../middleware/authGuard';
 import { requireRole } from '../middleware/requireRole';
+import { db } from '../config/firebase-admin';
 
 const router = Router();
+const USE_MOCK_AUTH = process.env.USE_MOCK_AUTH === 'true';
 
 // Health check endpoint
 router.get('/health', (req: Request, res: Response) => {
@@ -39,8 +39,15 @@ router.get('/admin/health/firestore', async (req: Request, res: Response) => {
 });
 
 // Auth routes
-router.post('/auth/login', authController.login);
+router.post('/auth/login', (req, res) => {
+  if (req.body?.token) {
+    return authController.login(req, res);
+  }
+  return USE_MOCK_AUTH ? loginMock(req, res) : authController.login(req, res);
+});
 router.post('/auth/reset-password', authController.resetPassword);
+
+router.post('/ai/chat', requireRole(['admin', 'faculty', 'student']), aiController.chat);
 
 // User/Admin routes
 router.get('/admin/users', requireRole('admin'), userController.getUsers);
@@ -78,26 +85,16 @@ router.patch('/enrollments/:id', enrollmentController.updateEnrollment);
 router.delete('/enrollments/:id', enrollmentController.unenrollStudent);
 
 // Session routes
-router.post('/sessions', requireRole(['admin', 'faculty']), sessionController.createSession);
-router.get('/sessions', requireRole(['admin', 'faculty', 'student']), sessionController.getSessions);
-router.get('/sessions/faculty/:id', requireRole(['admin', 'faculty']), sessionController.getSessionsByFaculty);
-router.get('/sessions/student/:id', requireRole(['admin', 'student']), sessionController.getSessionsByStudent);
-router.put('/sessions/:id', requireRole(['admin', 'faculty']), sessionController.updateSession);
-router.delete('/sessions/:id', requireRole(['admin', 'faculty']), sessionController.deleteSession);
-
-// New unified session control routes
-router.post('/sessions/start', requireRole(['admin', 'faculty']), sessionController.startSession);
-router.post('/sessions/end', requireRole(['admin', 'faculty']), sessionController.endSession);
-router.get('/sessions/:sessionId/qr', requireRole(['admin', 'faculty']), sessionController.getSessionQr);
-router.post('/sessions/checkin', requireRole('student'), sessionController.checkInWithQr);
-router.post('/sessions/checkout', requireRole('student'), sessionController.checkOutWithQr);
-router.post('/sessions/checkin-location', requireRole('student'), sessionController.checkInWithLocation);
-router.post('/sessions/checkout-location', requireRole('student'), sessionController.checkOutWithLocation);
-router.get('/sessions/:sessionId/summary', requireRole(['admin', 'faculty']), sessionController.getSessionSummary);
-
-// Keep legacy routes for backward compatibility if needed
-router.post('/sessions/:id/start', requireRole(['admin', 'faculty']), sessionController.startSessionById);
-router.post('/sessions/:id/end', requireRole(['admin', 'faculty']), sessionController.endSessionById);
+router.post('/sessions', sessionController.createSession);
+router.get('/sessions', sessionController.getSessions);
+router.get('/sessions/faculty/:id', sessionController.getSessionsByFaculty);
+router.get('/sessions/student/:id', sessionController.getSessionsByStudent);
+router.put('/sessions/:id', sessionController.updateSession);
+router.delete('/sessions/:id', sessionController.deleteSession);
+router.post('/sessions/:id/start', sessionController.startSessionById);
+router.post('/sessions/:id/end', sessionController.endSessionById);
+router.get('/sessions/:sessionId/qr', sessionController.getSessionQr);
+router.get('/sessions/:sessionId/summary', sessionController.getSessionSummary);
 
 // Attendance routes
 router.post('/attendance', attendanceController.markAttendance);

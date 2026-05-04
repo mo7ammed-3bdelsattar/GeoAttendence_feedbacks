@@ -4,10 +4,8 @@ import { db, auth as adminAuth } from '../config/firebase-admin';
 
 const normalizeRole = (role?: string) => {
   if (!role) return undefined;
-  const lower = String(role).toLowerCase();
-  if (lower === 'instructor' || lower === 'faculty') return 'faculty';
-  if (lower === 'admin') return 'admin';
-  return 'student';
+  if (role === 'instructor' || role === 'doctor') return 'faculty';
+  return role;
 };
 
 export const requireRole = (requiredRole: string | string[]) => async (
@@ -19,6 +17,7 @@ export const requireRole = (requiredRole: string | string[]) => async (
     // ... (existing token validation)
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('[ROLE GUARD] Missing or invalid Authorization header');
       return res.status(401).json({
         error: 'unauthenticated',
         message: 'Authorization header is required.',
@@ -49,8 +48,20 @@ export const requireRole = (requiredRole: string | string[]) => async (
       : undefined;
 
     if (!currentRole) {
-      const userDoc = await db.collection('users').doc(decoded.uid).get();
+      console.log(`[ROLE GUARD] No role found in token for user ${decoded.uid}, checking Firestore...`);
+      let userDoc = await db.collection('users').doc(decoded.uid).get();
+      
+      // Fallback: Check by email if UID lookup fails (useful for seeded/mock accounts)
+      if (!userDoc.exists() && decoded.email) {
+        console.log(`[ROLE GUARD] UID lookup failed for ${decoded.uid}, trying email lookup: ${decoded.email}`);
+        const userQuery = await db.collection('users').where('email', '==', decoded.email).limit(1).get();
+        if (!userQuery.empty) {
+          userDoc = userQuery.docs[0] as any;
+        }
+      }
+
       currentRole = normalizeRole(userDoc.data()?.role as string);
+      console.log(`[ROLE GUARD] Firestore role for ${decoded.uid} (email: ${decoded.email}): ${currentRole}`);
     }
 
     if (!currentRole) {

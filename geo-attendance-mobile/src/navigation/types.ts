@@ -4,6 +4,8 @@ export type RootStackParamList = {
   AdminTabs: undefined;
   InstructorTabs: undefined;
   StudentTabs: undefined;
+  AiChat: undefined;
+  StudentCoursePicker: undefined;
 };
 
 export type AdminTabParamList = {

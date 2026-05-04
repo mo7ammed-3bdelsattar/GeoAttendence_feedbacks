@@ -2,13 +2,12 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   onAuthStateChanged,
-  signInWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
   User,
 } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
+import { auth } from '../config/firebase';
+import { authApi } from '../services/api';
 
 export type UserRole = 'admin' | 'instructor' | 'student';
 
@@ -22,7 +21,7 @@ export interface AppUser {
 
 const normalizeBackendRole = (role?: string): UserRole => {
   if (!role) return 'student';
-  if (role === 'faculty' || role === 'instructor') return 'instructor';
+  if (role === 'faculty' || role === 'instructor' || role === 'doctor') return 'instructor';
   if (role === 'admin') return 'admin';
   return 'student';
 };
@@ -44,119 +43,88 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [pendingRole, setPendingRole] = useState<UserRole | null>(null);
 
   useEffect(() => {
+    const bootstrap = async () => {
+      try {
+        const storedUser = await AsyncStorage.getItem('userData');
+        if (storedUser) {
+          setUser(JSON.parse(storedUser));
+        }
+      } catch (error) {
+        console.warn('[AUTH] Unable to restore user from storage.', error);
+      } finally {
+        // We don't set loading to false here yet, 
+        // we wait for the first onAuthStateChanged to give us a definitive answer
+        // or a timeout.
+      }
+    };
+
+    void bootstrap();
+  }, []);
+
+  useEffect(() => {
+    let initialized = false;
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       setFirebaseUser(fbUser);
-      if (fbUser) {
-        try {
-          // 1. Try to recover user data from storage immediately for better UX
-          const storedUser = await AsyncStorage.getItem('userData');
-          if (storedUser) {
-            try {
-              setUser(JSON.parse(storedUser));
-            } catch (e) {
-              console.warn('[AUTH] Corrupt storage cleared');
-              await AsyncStorage.removeItem('userData');
-            }
-          }
-
-          // 2. Fetch fresh data from Firestore
-          const userDoc = await getDoc(doc(db, 'users', fbUser.uid));
-          if (userDoc.exists()) {
-            const data = userDoc.data();
-            const role = normalizeBackendRole(String(data.role));
-            const appUser: AppUser = {
-              id: fbUser.uid,
-              uid: fbUser.uid,
-              email: fbUser.email,
-              name: data.name || fbUser.displayName || fbUser.email?.split('@')[0] || 'User',
-              role,
-            };
-            setUser(appUser);
-            await AsyncStorage.setItem('userData', JSON.stringify(appUser));
-          } else {
-            // Fallback: If user doc is not in firestore, use the pending role or stored role
-            const currentRole = pendingRole || (JSON.parse(storedUser || '{}') as AppUser).role || 'student';
-            const fallbackUser: AppUser = {
-              id: fbUser.uid,
-              uid: fbUser.uid,
-              email: fbUser.email,
-              name: fbUser.displayName || fbUser.email?.split('@')[0] || 'User',
-              role: currentRole as any,
-            };
-            setUser(fallbackUser);
-          }
-          const idToken = await fbUser.getIdToken();
-          await AsyncStorage.setItem('userToken', idToken);
-        } catch (error) {
-          console.error('[AUTH] refresh failed:', error);
-        }
-      } else {
+      
+      if (!fbUser && initialized) {
+        // Only clear if we were already initialized and lost the session
         setUser(null);
         await AsyncStorage.removeItem('userToken');
         await AsyncStorage.removeItem('userData');
       }
+      
+      initialized = true;
       setLoading(false);
     });
 
-    return unsubscribe;
-  }, [pendingRole]);
+    // Fallback: if Firebase takes too long or fails to initialize, 
+    // stop loading so the user can at least see the login screen or restored session.
+    const timeout = setTimeout(() => {
+      if (!initialized) {
+        setLoading(false);
+      }
+    }, 2000);
+
+    return () => {
+      unsubscribe();
+      clearTimeout(timeout);
+    };
+  }, []);
 
   const login = async (email: string, password: string) => {
     const normalizedEmail = email.trim();
-    
-    try {
-      // 1. Try Backend Login FIRST (Matching Web App logic)
-      const { authApi } = require('../services/api');
-      const loginData = await authApi.login(normalizedEmail, password);
-      const { user: backendUser, token: backendToken } = loginData;
-      
-      const appUser: AppUser = {
-        id: backendUser.id,
-        uid: backendUser.id,
-        email: backendUser.email,
-        name: backendUser.name,
-        role: normalizeBackendRole(backendUser.role),
-      };
-      
-      setUser(appUser);
-      if (backendToken) {
-        await AsyncStorage.setItem('userToken', backendToken);
-        await AsyncStorage.setItem('userData', JSON.stringify(appUser));
-      }
-    } catch (backendErr: any) {
-      // 2. Fallback to Firebase Auth ONLY if backend login fails
-      try {
-        const credential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
-        
-        const userDoc = await getDoc(doc(db, 'users', credential.user.uid));
-        if (userDoc.exists()) {
-          const actualRole = normalizeBackendRole(String(userDoc.data()?.role));
-          const appUser: AppUser = {
-            id: credential.user.uid,
-            uid: credential.user.uid,
-            email: credential.user.email,
-            name: userDoc.data()?.name || credential.user.displayName || 'User',
-            role: actualRole,
-          };
-          setUser(appUser);
-          await AsyncStorage.setItem('userData', JSON.stringify(appUser));
-        }
-        
-        const idToken = await credential.user.getIdToken();
-        await AsyncStorage.setItem('userToken', idToken);
-      } catch (firebaseErr: any) {
-        throw backendErr;
-      }
+    const loginData = await authApi.login(normalizedEmail, password);
+    const { user: backendUser, token } = loginData;
+
+    const appUser: AppUser = {
+      id: backendUser.id,
+      uid: backendUser.id,
+      email: backendUser.email,
+      name: backendUser.name,
+      role: normalizeBackendRole(backendUser.role),
+    };
+
+    setUser(appUser);
+    if (token) {
+      await AsyncStorage.setItem('userToken', token);
     }
+    await AsyncStorage.setItem('userData', JSON.stringify(appUser));
   };
 
   const logout = async () => {
+    // Always clear local auth state first so logout is reliable
+    // even when Firebase session is not active (e.g. backend/mock login).
+    setUser(null);
+    setFirebaseUser(null);
     await AsyncStorage.removeItem('userToken');
     await AsyncStorage.removeItem('userData');
-    await signOut(auth);
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.warn('[AUTH] Firebase signOut skipped/failed:', error);
+    }
   };
 
   const resetPassword = async (email: string) => {
@@ -165,7 +133,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   return (
     <AuthContext.Provider
-      value={{ user, firebaseUser, loading, login: login as any, logout, resetPassword }}
+      value={{ user, firebaseUser, loading, login, logout, resetPassword }}
     >
       {children}
     </AuthContext.Provider>

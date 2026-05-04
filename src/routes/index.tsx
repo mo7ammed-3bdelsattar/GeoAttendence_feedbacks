@@ -11,8 +11,7 @@ import { StudentProfilePage } from '../pages/student/StudentProfilePage.tsx';
 import { StudentFeedbackPage } from '../pages/student/StudentFeedbackPage.tsx';
 import { StudentSessionsPage } from '../pages/student/StudentSessionsPage.tsx';
 import { StudentSchedulePage } from '../pages/student/StudentSchedulePage.tsx';
-import { StudentChatbotPage } from '../pages/student/StudentChatbotPage.tsx';
-import { StudentChatPage } from '../pages/student/StudentChatPage.tsx';
+import { StudentActivityDetailsPage } from '../pages/student/StudentActivityDetailsPage.tsx';
 
 import { AdminOverviewPage } from '../pages/admin/AdminOverviewPage.tsx';
 import { AdminUsersPage } from '../pages/admin/AdminUsersPage.tsx';
@@ -32,6 +31,7 @@ import { FacultySessionsPage } from '../pages/faculty/FacultySessionsPage.tsx';
 import { FacultyFeedbackPage } from '../pages/faculty/FacultyFeedbackPage.tsx';
 import { FacultyReportsPage } from '../pages/faculty/FacultyReportsPage.tsx';
 import { AttendanceSummaryPage } from '../pages/faculty/AttendanceSummaryPage.tsx';
+import { AiChatPage } from '../pages/common/AiChatPage.tsx';
 import { RoleGuard } from '../components/RoleGuard.tsx';
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: UserRole[] }) {
@@ -107,12 +107,13 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute allowedRoles={['student']}><StudentSchedulePage /></ProtectedRoute>,
   },
   {
-    path: '/student/chatbot',
-    element: <ProtectedRoute allowedRoles={['student']}><StudentChatbotPage /></ProtectedRoute>,
+    path: '/student/activity-details',
+    element: <ProtectedRoute allowedRoles={['student']}><StudentActivityDetailsPage /></ProtectedRoute>,
   },
+
   {
-    path: '/student/chat',
-    element: <ProtectedRoute allowedRoles={['student']}><StudentChatPage /></ProtectedRoute>,
+    path: '/ai-chat',
+    element: <ProtectedRoute allowedRoles={['admin', 'faculty', 'student']}><AiChatPage /></ProtectedRoute>,
   },
 
   {
