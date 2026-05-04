@@ -1,96 +1,210 @@
-import { db } from '../config/firebase-admin';
+import { db, auth as adminAuth } from '../config/firebase-admin';
 
-async function deleteCollection(collectionPath: string) {
-  const collectionRef = db.collection(collectionPath);
-  const snapshot = await collectionRef.get();
-  if (snapshot.empty) return;
-
+async function clearCollection(collectionPath: string) {
+  const snapshot = await db.collection(collectionPath).get();
   const batch = db.batch();
   snapshot.docs.forEach((doc) => batch.delete(doc.ref));
   await batch.commit();
 }
 
 async function seed() {
-  console.log('--- Starting Seeder (Safe Mode - No Deletion) ---');
+  console.log('🚀 Starting Evaluation Seeder (1 Year, 2 Semesters)...');
 
-  const collections = ['users', 'departments', 'courses', 'classrooms', 'sessions', 'enrollments', 'attendance', 'notifications', 'feedback'];
-  /* 
+  // 1. Clear existing data
+  const collections = ['users', 'departments', 'courses', 'classrooms', 'sessions', 'enrollments', 'attendance', 'feedback', 'groups', 'policies', 'chats'];
   for (const col of collections) {
     console.log(`🧹 Cleaning: ${col}`);
-    await deleteCollection(col);
+    await clearCollection(col);
   }
-  */
 
+  // 2. Seed Departments
   console.log('🏛️  Seeding Departments...');
-  const depts = [
-    { name: 'كلية الهندسة', code: 'ENG' },
-    { name: 'علوم الحاسب والذكاء الاصطناعي', code: 'CSAI' },
-    { name: 'نظم المعلومات الإدارية', code: 'MIS' }
+  const departments = [
+    { id: 'dept-cs', name: 'Computer Science', code: 'CS' },
+    { id: 'dept-eng', name: 'Engineering', code: 'ENG' },
+    { id: 'dept-lit', name: 'English Literature', code: 'LIT' },
+    { id: 'dept-math', name: 'Mathematics', code: 'MATH' },
   ];
-  const deptRefs = await Promise.all(depts.map(d => db.collection('departments').add(d)));
+  for (const d of departments) await db.collection('departments').doc(d.id).set(d);
 
+  // 3. Seed Classrooms
   console.log('📍 Seeding Classrooms...');
-  const rooms = [
-    { name: 'المدرج الكبير', code: 'AUD-01', capacity: 200, lat: 30.0444, lng: 31.2357, geofenceRadiusMeters: 80 },
-    { name: 'معمل البرمجيات 4', code: 'LAB-04', capacity: 40, lat: 30.0441, lng: 31.2359, geofenceRadiusMeters: 40 },
-    { name: 'قاعة الشبكات', code: 'HALL-N', capacity: 60, lat: 30.0447, lng: 31.2355, geofenceRadiusMeters: 50 },
-    { name: 'قاعة 202 - نظم', code: 'R202', capacity: 30, lat: 30.0440, lng: 31.2360, geofenceRadiusMeters: 30 }
+  const classrooms = [
+    { id: 'room-101', name: 'Hall 101', building: 'Main Hall', lat: 30.0444, lng: 31.2357, geofenceRadiusMeters: 50 },
+    { id: 'room-102', name: 'Lab 102', building: 'CS Building', lat: 30.0441, lng: 31.2359, geofenceRadiusMeters: 30 },
+    { id: 'room-103', name: 'Workshop 103', building: 'Engineering Lab', lat: 30.0447, lng: 31.2355, geofenceRadiusMeters: 40 },
   ];
-  const roomRefs = await Promise.all(rooms.map(r => db.collection('classrooms').add(r)));
+  for (const c of classrooms) await db.collection('classrooms').doc(c.id).set(c);
 
-  console.log('👥 Seeding Users (Arabic names & Real-style emails)...');
-  const admins = [
-    { id: 'admin-1', name: 'مدير النظام', email: 'admin@uni.edu', role: 'admin', password: 'password123' },
-    { id: 'admin-2', name: 'أحمد أيمن', email: 'ahmedaymanmido307@gmail.com', role: 'admin', password: 'password123' }
-  ];
-  const faculty = [
-    { id: 'f-mohamed', name: 'د. محمد علي', email: 'm.ali@uni.edu', role: 'faculty', deptId: deptRefs[1].id, password: 'password123' },
-    { id: 'f-ahmed', name: 'د. أحمد محمود', email: 'a.mahmoud@uni.edu', role: 'faculty', deptId: deptRefs[1].id, password: 'password123' },
-    { id: 'f-hassan', name: 'د. حسن عبد الله', email: 'h.abdallah@uni.edu', role: 'faculty', deptId: deptRefs[0].id, password: 'password123' }
-  ];
-  const students = [
-    { id: 's-yassin', name: 'ياسين محمد السعدي', email: 'yassin.mohamed@student.uni.edu', role: 'student', password: 'password123' },
-    { id: 's-omar', name: 'عمر خالد', email: 'omar.khaled@student.uni.edu', role: 'student', password: 'password123' },
-    { id: 's-fatma', name: 'فاطمة الزهراء', email: 'fatma.alzahraa@student.uni.edu', role: 'student', password: 'password123' },
-    { id: 's-nour', name: 'نور الدين مصطفى', email: 'nour.mustafa@student.uni.edu', role: 'student', password: 'password123' }
+  // 4. Seed Users (Arabic names in English letters)
+  console.log('👥 Seeding Users...');
+  const password = 'password123';
+  const userList = [
+    { email: 'admin@uni.edu', name: 'Mohammed Abdul Sattar', role: 'admin' },
+    { email: 'ali.hassan@uni.edu', name: 'Ali Hassan', role: 'admin' },
+    { email: 'ahmed.mansour@uni.edu', name: 'Ahmed Mansour', role: 'faculty' },
+    { email: 'fatima.zahra@uni.edu', name: 'Fatima Zahra', role: 'faculty' },
+    { email: 'omar.khattab@uni.edu', name: 'Omar Khattab', role: 'faculty' },
+    { email: 'leila.aswany@uni.edu', name: 'Leila Al-Aswany', role: 'faculty' },
+    { email: 'youssef.ibrahim@uni.edu', name: 'Youssef Ibrahim', role: 'student' },
+    { email: 'mariam.mahmoud@uni.edu', name: 'Mariam Mahmoud', role: 'student' },
+    { email: 'zainab.qassim@uni.edu', name: 'Zainab Qassim', role: 'student' },
+    { email: 'khaled.waleed@uni.edu', name: 'Khaled Waleed', role: 'student' },
+    { email: 'nour.huda@uni.edu', name: 'Nour Al-Huda', role: 'student' },
+    { email: 'hassan.basri@uni.edu', name: 'Hassan Basri', role: 'student' },
+    { email: 'amina.wahab@uni.edu', name: 'Amina Wahab', role: 'student' },
+    { email: 'tareq.ziyad@uni.edu', name: 'Tareq Ziyad', role: 'student' },
+    { email: 'salma.rashid@uni.edu', name: 'Salma Rashid', role: 'student' },
+    { email: 'mustafa.kamel@uni.edu', name: 'Mustafa Kamel', role: 'student' },
   ];
 
-  const allUsers = [...admins, ...faculty, ...students];
-  await Promise.all(allUsers.map(u => db.collection('users').doc(u.id).set(u)));
+  const instructorIds: string[] = [];
+  const studentIds: string[] = [];
 
-  console.log('📚 Seeding Courses...');
+  for (const u of userList) {
+    try {
+      let uid = '';
+      try {
+        const userRecord = await adminAuth.createUser({
+          email: u.email,
+          password: password,
+          displayName: u.name,
+        });
+        uid = userRecord.uid;
+      } catch (authError: any) {
+        if (authError.code === 'auth/email-already-exists') {
+          const existing = await adminAuth.getUserByEmail(u.email);
+          uid = existing.uid;
+          await adminAuth.updateUser(uid, { password }); // Reset password for evaluation
+        } else throw authError;
+      }
+
+      await db.collection('users').doc(uid).set({
+        id: uid,
+        name: u.name,
+        email: u.email,
+        password: password, // For easy evaluation login
+        role: u.role,
+        createdAt: new Date().toISOString()
+      });
+
+      if (u.role === 'faculty') instructorIds.push(uid);
+      if (u.role === 'student') studentIds.push(uid);
+      console.log(`User ${u.name} synced.`);
+    } catch (e) {
+      console.error(`Error syncing user ${u.name}:`, e);
+    }
+  }
+
+  // 5. Seed Courses & Groups
+  console.log('📚 Seeding Courses & Groups...');
   const courses = [
-    { code: 'CS101', name: 'هيكلة البيانات والخوارزميات', departmentId: deptRefs[1].id, facultyId: 'f-mohamed' },
-    { code: 'CS202', name: 'تطوير تطبيقات الويب الحديثة', departmentId: deptRefs[1].id, facultyId: 'f-mohamed' },
-    { code: 'AI301', name: 'أساسيات الذكاء الاصطناعي', departmentId: deptRefs[1].id, facultyId: 'f-ahmed' },
-    { code: 'ENG105', name: 'الديناميكا الحرارية', departmentId: deptRefs[0].id, facultyId: 'f-hassan' }
+    { id: 'cs101', name: 'Intro to Algorithms', dept: 'dept-cs', inst: instructorIds[0] },
+    { id: 'cs202', name: 'Database Systems', dept: 'dept-cs', inst: instructorIds[1] },
+    { id: 'eng301', name: 'Structural Analysis', dept: 'dept-eng', inst: instructorIds[2] },
+    { id: 'lit101', name: 'Arabic Poetry', dept: 'dept-lit', inst: instructorIds[3] },
   ];
-  const courseRefs = await Promise.all(courses.map(c => db.collection('courses').add(c)));
 
-  console.log('📝 Seeding Enrollments...');
-  const enrollmentPairs = [
-    { studentId: 's-yassin', courseId: courseRefs[0].id },
-    { studentId: 's-yassin', courseId: courseRefs[1].id },
-    { studentId: 's-omar', courseId: courseRefs[0].id },
-    { studentId: 's-omar', courseId: courseRefs[2].id },
-    { studentId: 's-fatma', courseId: courseRefs[1].id },
-    { studentId: 's-nour', courseId: courseRefs[0].id },
-    { studentId: 's-nour', courseId: courseRefs[1].id },
-    { studentId: 's-nour', courseId: courseRefs[2].id }
+  for (const c of courses) {
+    await db.collection('courses').doc(c.id).set({
+      id: c.id,
+      name: c.name,
+      departmentId: c.dept,
+      facultyId: c.inst,
+      createdAt: new Date().toISOString()
+    });
+
+    const groupId = `group-${c.id}`;
+    await db.collection('groups').doc(groupId).set({
+      id: groupId,
+      courseId: c.id,
+      facultyId: c.inst,
+      name: 'Group A',
+      createdAt: new Date().toISOString()
+    });
+
+    // Enroll students
+    const targetStudents = (c.id.startsWith('cs')) ? studentIds : studentIds.slice(0, 5);
+    for (const sid of targetStudents) {
+      await db.collection('enrollments').add({
+        studentId: sid,
+        courseId: c.id,
+        groupId: groupId,
+        enrolledAt: new Date().toISOString()
+      });
+    }
+  }
+
+  // 6. Seed Sessions, Attendance, Feedback (Simulating 1 year)
+  console.log('📅 Seeding Historical Sessions, Attendance & Feedback...');
+  const semesters = [
+    { name: 'Fall 2025', start: new Date('2025-09-01'), end: new Date('2025-12-15') },
+    { name: 'Spring 2026', start: new Date('2026-01-15'), end: new Date('2026-05-30') },
   ];
-  await Promise.all(enrollmentPairs.map(e => db.collection('enrollments').add({ ...e, enrolledAt: new Date().toISOString() })));
 
-  console.log('📅 Seeding Sessions...');
-  const today = new Date().toISOString().split('T')[0];
-  const sessions = [
-    { courseId: courseRefs[0].id, facultyId: 'f-mohamed', classroomId: roomRefs[1].id, date: today, startTime: '09:00', endTime: '11:00', topic: 'التعقيد الزمني للخوارزميات', status: 'UPCOMING' },
-    { courseId: courseRefs[1].id, facultyId: 'f-mohamed', classroomId: roomRefs[2].id, date: today, startTime: '12:00', endTime: '14:00', topic: 'مقدمة في مكتبة React', status: 'UPCOMING' },
-    { courseId: courseRefs[2].id, facultyId: 'f-ahmed', classroomId: roomRefs[0].id, date: today, startTime: '14:30', endTime: '16:30', topic: 'نماذج التعلم الخاضع للإشراف', status: 'UPCOMING' },
-    { courseId: courseRefs[3].id, facultyId: 'f-hassan', classroomId: roomRefs[0].id, date: today, startTime: '10:00', endTime: '13:00', topic: 'قوانين الديناميكا الحرارية', status: 'UPCOMING' }
+  for (const sem of semesters) {
+    for (const c of courses) {
+      const groupId = `group-${c.id}`;
+      // Generate 5 historical sessions per semester
+      for (let i = 0; i < 5; i++) {
+        const sessionDate = new Date(sem.start.getTime() + Math.random() * (sem.end.getTime() - sem.start.getTime()));
+        const sessionId = `sess-${c.id}-${sem.name.replace(' ', '')}-${i}`;
+        const room = classrooms[i % classrooms.length];
+        
+        await db.collection('sessions').doc(sessionId).set({
+          id: sessionId,
+          courseId: c.id,
+          groupId: groupId,
+          facultyId: instructorIds[courses.indexOf(c)],
+          classroomId: room.id,
+          date: sessionDate.toISOString().split('T')[0],
+          startTime: '09:00',
+          endTime: '11:00',
+          status: 'ended',
+          createdAt: new Date().toISOString()
+        });
+
+        // Attendance
+        const enrolledStudents = (c.id.startsWith('cs')) ? studentIds : studentIds.slice(0, 5);
+        for (const sid of enrolledStudents) {
+          if (Math.random() > 0.15) { // 85% attendance
+             await db.collection('attendance').add({
+               sessionId: sessionId,
+               studentId: sid,
+               status: 'present',
+               timestamp: new Date(sessionDate.getTime() + 15 * 60000).toISOString(),
+               latitude: room.lat + (Math.random() * 0.0001),
+               longitude: room.lng + (Math.random() * 0.0001)
+             });
+          }
+        }
+      }
+
+      // Feedback
+      const enrolledStudents = (c.id.startsWith('cs')) ? studentIds : studentIds.slice(0, 5);
+      for (const sid of enrolledStudents) {
+        await db.collection('feedback').add({
+          studentId: sid,
+          courseId: c.id,
+          groupId: groupId,
+          rating: 4 + Math.floor(Math.random() * 2), // 4-5 stars
+          message: 'Excellent course and instructor!',
+          semester: sem.name,
+          createdAt: new Date(sem.end.getTime() - 1000000).toISOString()
+        });
+      }
+    }
+  }
+
+  // 7. Policies
+  console.log('📜 Seeding Policies...');
+  const policies = [
+    { title: 'Attendance Rules', content: 'Minimum 75% attendance required. Geofence radius is 50m.', keywords: ['absent', 'late', '75%'] },
+    { title: 'Grading Policy', content: 'A+ (95-100), A (90-94), B+ (85-89), B (80-84), C (70-79).', keywords: ['grades', 'exam'] },
   ];
-  await Promise.all(sessions.map(s => db.collection('sessions').add(s)));
+  for (const p of policies) await db.collection('policies').add({ ...p, updatedAt: new Date().toISOString() });
 
-  console.log('✅ Seeding Complete with Arabic assets!');
+  console.log('✅ Robust Evaluation Seeder Complete!');
   process.exit(0);
 }
 

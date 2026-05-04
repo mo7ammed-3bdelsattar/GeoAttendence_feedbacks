@@ -4,8 +4,10 @@ import { db, auth as adminAuth } from '../config/firebase-admin';
 
 const normalizeRole = (role?: string) => {
   if (!role) return undefined;
-  if (role === 'instructor') return 'faculty';
-  return role;
+  const lower = String(role).toLowerCase();
+  if (lower === 'instructor' || lower === 'faculty') return 'faculty';
+  if (lower === 'admin') return 'admin';
+  return 'student';
 };
 
 export const requireRole = (requiredRole: string | string[]) => async (
@@ -54,8 +56,9 @@ export const requireRole = (requiredRole: string | string[]) => async (
     if (!currentRole) {
       return res.status(403).json({
         error: 'role_mismatch',
-        message: 'User role is missing.',
-        currentRole: 'unknown',
+        message: 'User role is missing or unrecognized.',
+        currentRole: 'none',
+        uid: decoded.uid,
         requiredRole,
       });
     }

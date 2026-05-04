@@ -56,6 +56,7 @@ export function AdminSessionsPage() {
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [title, setTitle] = useState('');
+  const [isActive, setIsActive] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const fetchAll = async () => {
@@ -115,6 +116,7 @@ export function AdminSessionsPage() {
     setStartTime('');
     setEndTime('');
     setTitle('');
+    setIsActive(false);
   };
 
   const handleSave = async () => {
@@ -130,7 +132,8 @@ export function AdminSessionsPage() {
       date,
       startTime,
       endTime,
-      title
+      title,
+      isActive
     };
 
     try {
@@ -161,6 +164,7 @@ export function AdminSessionsPage() {
     setStartTime(s.startTime);
     setEndTime(s.endTime);
     setTitle(s.title || '');
+    setIsActive(s.isActive || s.status === 'active');
     setAddOpen(true);
   };
 
@@ -242,6 +246,7 @@ export function AdminSessionsPage() {
                     <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Lecture/Course</th>
                     <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Instructor</th>
                     <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Schedule</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Status</th>
                     <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Location</th>
                     <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">Actions</th>
                   </tr>
@@ -286,6 +291,11 @@ export function AdminSessionsPage() {
                                  {s.startTime} - {s.endTime}
                               </div>
                            </div>
+                        </td>
+                        <td className="px-6 py-4">
+                           <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold ${s.isActive || s.status === 'active' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-gray-50 text-gray-600 border border-gray-100'}`}>
+                              {s.isActive || s.status === 'active' ? 'Active' : 'Upcoming'}
+                           </span>
                         </td>
                         <td className="px-6 py-4">
                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg text-xs font-bold">
@@ -390,6 +400,20 @@ export function AdminSessionsPage() {
                 onChange={(e) => setTitle(e.target.value)}
                 fullWidth
              />
+
+             <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                <input 
+                  type="checkbox" 
+                  id="isActive" 
+                  checked={isActive} 
+                  onChange={(e) => setIsActive(e.target.checked)}
+                  className="h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary/20"
+                />
+                <label htmlFor="isActive" className="text-sm font-bold text-gray-700 cursor-pointer flex-1">
+                   Mark as Active Session
+                   <span className="block text-[10px] text-gray-400 font-medium mt-0.5">Students can only check-in if the session is active and today.</span>
+                </label>
+             </div>
              
              {/* Simple visual validation aid */}
              {startTime && endTime && startTime >= endTime && (

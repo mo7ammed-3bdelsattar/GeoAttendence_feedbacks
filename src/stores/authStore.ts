@@ -9,7 +9,7 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-  login: (email: string, password: string, role: UserRole) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
   /** Restores the user session using the token in storage. */
   restoreSession: (user: User, token: string) => void;
   logout: () => Promise<void>;
@@ -26,12 +26,13 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isLoading: false,
       error: null,
-      login: async (email, password, role) => {
+      login: async (email, password) => {
         set({ isLoading: true, error: null });
         try {
-          const { user, token } = await authApi.login(email, password, role);
+          const { user, token } = await authApi.login(email, password);
           setAccessToken(token);
           set({ user, isAuthenticated: true, isLoading: false, error: null });
+          return user;
         } catch (e) {
           set({ error: e instanceof Error ? e.message : 'Login failed', isLoading: false });
           throw e;

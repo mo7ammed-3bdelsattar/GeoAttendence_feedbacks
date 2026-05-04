@@ -8,7 +8,7 @@ import {
 } from 'firebase/auth';
 import { auth as clientAuth } from '../config/firebase';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5050/api';
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.194:5000/api';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -55,7 +55,7 @@ export interface Course {
 }
 
 export const authApi = {
-  async login(email: string, password: string, role: string): Promise<{ user: any; token: string }> {
+  async login(email: string, password: string): Promise<{ user: any; token: string }> {
     try {
       // 1. Try Firebase Authentication first
       console.log('[AUTH] Attempting Firebase login...');
@@ -63,7 +63,7 @@ export const authApi = {
       const idToken = await userCredential.user.getIdToken();
       
       console.log('[AUTH] Firebase success, syncing with backend...');
-      const response = await api.post('/auth/login', { token: idToken, role, email });
+      const response = await api.post('/auth/login', { token: idToken, email });
       const userData = response.data;
   
       return {
@@ -79,7 +79,7 @@ export const authApi = {
       // 2. Fallback to Backend Authentication (for admin/mock accounts)
       console.log('[AUTH] Firebase failed, trying backend fallback...', error.message);
       try {
-        const response = await api.post('/auth/login', { email, password, role });
+        const response = await api.post('/auth/login', { email, password });
         const userData = response.data;
         return {
           user: {
@@ -299,6 +299,24 @@ export const attendanceApi = {
     }
   },
 
+  locationCheckin: async (payload: { sessionId: string; gpsCoords: { lat: number; lng: number } }) => {
+    try {
+      const response = await api.post('/sessions/checkin-location', payload);
+      return response.data;
+    } catch (error) {
+      throw new Error(normalizeApiError(error, 'Unable to check in via location.'));
+    }
+  },
+
+  locationCheckout: async (payload: { sessionId: string; gpsCoords: { lat: number; lng: number } }) => {
+    try {
+      const response = await api.post('/sessions/checkout-location', payload);
+      return response.data;
+    } catch (error) {
+      throw new Error(normalizeApiError(error, 'Unable to check out via location.'));
+    }
+  },
+
   markAttendanceSmart: async (payload: {
     studentId: string;
     sessionId: string;
@@ -382,6 +400,28 @@ export const studentApi = {
   getStudentDashboard: async (studentId: string) => {
     const response = await api.get(`/student/dashboard/${studentId}`);
     return response.data;
+  }
+};
+
+export const chatbotApi = {
+  ask: async (query: string) => {
+    const response = await api.post('/chatbot/ask', { query });
+    return response.data.data;
+  }
+};
+
+export const chatApi = {
+  getMyChats: async (userId: string, role: string) => {
+    const response = await api.get('/chats', { params: { userId, role } });
+    return response.data.data;
+  },
+  getMessages: async (chatId: string) => {
+    const response = await api.get(`/chats/${chatId}/messages`);
+    return response.data.data;
+  },
+  sendMessage: async (payload: { studentId: string; senderId: string; text: string; isAdmin?: boolean }) => {
+    const response = await api.post('/chats/messages', payload);
+    return response.data.data;
   }
 };
 

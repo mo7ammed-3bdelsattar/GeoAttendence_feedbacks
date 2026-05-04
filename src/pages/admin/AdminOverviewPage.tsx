@@ -125,6 +125,7 @@ export function AdminOverviewPage() {
 
             <div className="space-y-3">
               {[
+                { label: 'Try Assistant (AI)', path: '/admin/chatbot', desc: 'Test the Gemini-powered AI policy assistant.' },
                 { label: 'Manage Database Users', path: '/admin/users', desc: 'Add, edit, or remove users from the system.' },
                 { label: 'Sign Up New Entry', path: '/admin/users/signup', desc: 'Manually register a student or faculty account.' },
                 { label: 'System Health Logs', path: '#', desc: 'Coming soon - View real-time API logs.' }

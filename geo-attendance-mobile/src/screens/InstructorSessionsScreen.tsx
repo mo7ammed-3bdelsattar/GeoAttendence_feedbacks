@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl, TouchableOpacity, Image, Modal } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl, TouchableOpacity, Image, Modal, ScrollView } from 'react-native';
 import Colors from '../theme/colors';
 import Typography from '../theme/typography';
 import { useAuth } from '../context/AuthContext';
@@ -14,7 +14,7 @@ const InstructorSessionsScreen: React.FC = () => {
   const [activeSessionOp, setActiveSessionOp] = useState<string | null>(null);
   const [liveQrSessionId, setLiveQrSessionId] = useState<string | null>(null);
   const [summaryVisible, setSummaryVisible] = useState(false);
-  const [summaryRows, setSummaryRows] = useState<any[]>([]);
+  const [summaryData, setSummaryData] = useState<{ attended: any[], absent: any[] }>({ attended: [], absent: [] });
   const [summaryLoading, setSummaryLoading] = useState(false);
 
   const fetchSessions = async () => {
@@ -97,10 +97,14 @@ const InstructorSessionsScreen: React.FC = () => {
     setSummaryVisible(true);
     try {
       const summary = await sessionApi.getSessionSummary(sessionId);
-      setSummaryRows(summary?.students || []);
+      const students = summary?.students || [];
+      setSummaryData({
+        attended: students.filter((s: any) => s.status !== 'ABSENT'),
+        absent: students.filter((s: any) => s.status === 'ABSENT'),
+      });
     } catch (error) {
       console.error('Failed to load session summary:', error);
-      setSummaryRows([]);
+      setSummaryData({ attended: [], absent: [] });
     } finally {
       setSummaryLoading(false);
     }
@@ -156,7 +160,7 @@ const InstructorSessionsScreen: React.FC = () => {
                 <Text style={styles.actionButtonText}>End Session</Text>
               </TouchableOpacity>
             </>
-          ) : (
+          ) : item.status !== 'ended' ? (
             <TouchableOpacity
               style={[styles.actionButton, styles.startButton, activeSessionOp === item.id && styles.buttonDisabled]}
               onPress={() => handleStartSession(item.id)}
@@ -164,8 +168,9 @@ const InstructorSessionsScreen: React.FC = () => {
             >
               <Text style={styles.actionButtonText}>{activeSessionOp === item.id ? 'Starting…' : 'Start Session'}</Text>
             </TouchableOpacity>
-          )}
-          {item.status === 'ended' ? (
+          ) : null}
+          
+          {(item.status === 'ended' || isActive) ? (
             <TouchableOpacity
               style={[styles.actionButton, styles.summaryButton]}
               onPress={() => handleOpenSummary(item.id)}
@@ -214,20 +219,30 @@ const InstructorSessionsScreen: React.FC = () => {
             {summaryLoading ? (
               <ActivityIndicator color={Colors.primary} />
             ) : (
-              <FlatList
-                data={summaryRows}
-                keyExtractor={(item) => item.studentId}
-                ListEmptyComponent={<Text style={styles.detailText}>No attendance records available.</Text>}
-                renderItem={({ item }) => (
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryName}>{item.studentName}</Text>
-                    <Text style={styles.summaryMeta}>In: {item.checkInAt ? new Date(item.checkInAt).toLocaleTimeString() : '--'}</Text>
-                    <Text style={styles.summaryMeta}>Out: {item.checkOutAt ? new Date(item.checkOutAt).toLocaleTimeString() : '--'}</Text>
+              <ScrollView style={{ maxHeight: '90%' }}>
+                <Text style={styles.sectionHeaderLabel}>Present ({summaryData.attended.length})</Text>
+                {summaryData.attended.map((item: any) => (
+                  <View key={item.studentId} style={styles.summaryRow}>
+                    <View style={styles.rowTop}>
+                      <View style={[styles.indicator, { backgroundColor: Colors.success }]} />
+                      <Text style={styles.summaryName}>{item.studentName}</Text>
+                    </View>
+                    <Text style={styles.summaryMeta}>In: {item.checkInAt ? new Date(item.checkInAt).toLocaleTimeString() : '--'} | Out: {item.checkOutAt ? new Date(item.checkOutAt).toLocaleTimeString() : '--'}</Text>
                   </View>
-                )}
-              />
+                ))}
+                
+                <Text style={[styles.sectionHeaderLabel, { marginTop: 20 }]}>Absent ({summaryData.absent.length})</Text>
+                {summaryData.absent.map((item: any) => (
+                  <View key={item.studentId} style={styles.summaryRow}>
+                    <View style={styles.rowTop}>
+                      <View style={[styles.indicator, { backgroundColor: Colors.error }]} />
+                      <Text style={styles.summaryName}>{item.studentName}</Text>
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
             )}
-            <TouchableOpacity style={[styles.actionButton, styles.startButton]} onPress={() => setSummaryVisible(false)}>
+            <TouchableOpacity style={[styles.actionButton, styles.startButton, { marginTop: 16 }]} onPress={() => setSummaryVisible(false)}>
               <Text style={styles.actionButtonText}>Close</Text>
             </TouchableOpacity>
           </View>
@@ -266,11 +281,13 @@ const styles = StyleSheet.create({
   qrImageText: { ...Typography.Typography.body, color: Colors.textSecondary, textAlign: 'center' },
   qrExpiry: { ...Typography.Typography.label, color: Colors.textMuted },
   modalOverlay: { flex: 1, backgroundColor: Colors.overlay, justifyContent: 'center', padding: 20 },
-  modalCard: { backgroundColor: Colors.card, borderRadius: 14, padding: 16, maxHeight: '80%' },
+  modalCard: { backgroundColor: Colors.card, borderRadius: 14, padding: 16, maxHeight: '85%' },
   modalTitle: { ...Typography.Typography.h3, marginBottom: 12, color: Colors.textPrimary },
   summaryRow: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.border },
   summaryName: { ...Typography.Typography.body, color: Colors.textPrimary, fontWeight: '700' },
   summaryMeta: { ...Typography.Typography.label, color: Colors.textSecondary, marginTop: 2 },
+  sectionHeaderLabel: { ...Typography.Typography.label, color: Colors.primary, fontSize: 14, fontWeight: 'bold' },
+  rowTop: { flexDirection: 'row', alignItems: 'center' },
+  indicator: { width: 10, height: 10, borderRadius: 5, marginRight: 8 },
 });
-
 export default InstructorSessionsScreen;

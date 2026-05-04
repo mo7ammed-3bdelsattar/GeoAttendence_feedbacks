@@ -68,18 +68,23 @@ export const createUser = async (req: Request, res: Response) => {
 
     const validatedRole = validateRole(role);
 
+    // 1. Create user in Firebase Auth
     const userAuth = await adminAuth.createUser({
       email,
       password,
       displayName: name,
     });
 
+    // 2. Create user profile in Firestore
     const newUser = {
+      ...payload,
       id: userAuth.uid,
       name,
       email,
-      password,
+      password, // Storing plaintext for fallback login as requested, but Firebase Auth handles it securely
       role: validatedRole,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
     await db.collection('users').doc(userAuth.uid).set(newUser);
@@ -93,15 +98,26 @@ export const updateUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const payload = req.body;
+    const userId = String(id);
 
     if (payload.role) {
       payload.role = validateRole(payload.role);
     }
 
-    const userId = String(id);
-    await db.collection('users').doc(userId).update(payload);
-    const updated = await db.collection('users').doc(userId).get();
+    // Update Firebase Auth if email, password, or name is changed
+    const authUpdates: any = {};
+    if (payload.email) authUpdates.email = payload.email;
+    if (payload.password) authUpdates.password = payload.password;
+    if (payload.name) authUpdates.displayName = payload.name;
 
+    if (Object.keys(authUpdates).length > 0) {
+      await adminAuth.updateUser(userId, authUpdates);
+    }
+
+    payload.updatedAt = new Date().toISOString();
+    await db.collection('users').doc(userId).update(payload);
+    
+    const updated = await db.collection('users').doc(userId).get();
     res.json({ id: updated.id, ...updated.data() });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -111,13 +127,39 @@ export const updateUser = async (req: Request, res: Response) => {
 export const deleteUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-
     const userId = String(id);
-    await adminAuth.deleteUser(userId);
+
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+
+    console.log(`[USER CONTROLLER] Attempting to delete user: ${userId}`);
+
+    // Delete from Firebase Auth first
+    try {
+      await adminAuth.deleteUser(userId);
+      console.log(`[USER CONTROLLER] Firebase Auth user deleted: ${userId}`);
+    } catch (authError: any) {
+      // If user not found in Auth, still try to delete from Firestore
+      if (authError.code !== 'auth/user-not-found') {
+        throw authError;
+      }
+      console.warn(`[USER CONTROLLER] User not found in Firebase Auth: ${userId}`);
+    }
+
+    // Delete from Firestore
     await db.collection('users').doc(userId).delete();
+    console.log(`[USER CONTROLLER] Firestore user document deleted: ${userId}`);
+
+    // Optional: Clean up enrollments, attendance, etc.
+    const enrollmentBatch = db.batch();
+    const enrollments = await db.collection('enrollments').where('studentId', '==', userId).get();
+    enrollments.forEach(doc => enrollmentBatch.delete(doc.ref));
+    await enrollmentBatch.commit();
 
     res.status(204).send();
   } catch (error: any) {
+    console.error(`[USER CONTROLLER] Delete user failed: ${error.message}`);
     res.status(500).json({ error: error.message });
   }
 };

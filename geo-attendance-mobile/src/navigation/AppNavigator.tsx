@@ -20,14 +20,18 @@ import AdminDepartmentsScreen from '../screens/AdminDepartmentsScreen';
 import AdminClassroomsScreen from '../screens/AdminClassroomsScreen';
 import AdminEnrollmentsScreen from '../screens/AdminEnrollmentsScreen';
 import AdminFeedbackAuditScreen from '../screens/AdminFeedbackAuditScreen';
+import AdminReportsScreen from '../screens/AdminReportsScreen';
 
 import InstructorDashboardScreen from '../screens/InstructorDashboardScreen';
 import InstructorSessionsScreen from '../screens/InstructorSessionsScreen';
 import InstructorFeedbackScreen from '../screens/InstructorFeedbackScreen';
+import InstructorReportsScreen from '../screens/InstructorReportsScreen';
 
 import StudentDashboardScreen from '../screens/StudentDashboardScreen';
 import StudentSessionsScreen from '../screens/StudentSessionsScreen';
 import StudentFeedbackScreen from '../screens/StudentFeedbackScreen';
+import StudentChatbotScreen from '../screens/StudentChatbotScreen';
+import StudentChatScreen from '../screens/StudentChatScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const AdminTab = createBottomTabNavigator<AdminTabParamList>();
@@ -61,6 +65,7 @@ const AdminTabs = () => (
     <AdminTab.Screen name="Classrooms" component={AdminClassroomsScreen} options={{ tabBarButton: () => null }} />
     <AdminTab.Screen name="Enrollments" component={AdminEnrollmentsScreen} options={{ tabBarButton: () => null }} />
     <AdminTab.Screen name="FeedbackAudit" component={AdminFeedbackAuditScreen} options={{ tabBarButton: () => null }} />
+    <AdminTab.Screen name="AdminReports" component={AdminReportsScreen} options={{ tabBarButton: () => null }} />
   </AdminTab.Navigator>
 );
 
@@ -69,6 +74,7 @@ const InstructorTabs = () => (
     <InstructorTab.Screen name="Dashboard" component={InstructorDashboardScreen} options={{ tabBarIcon: () => <Text>📊</Text> }} />
     <InstructorTab.Screen name="Sessions" component={InstructorSessionsScreen} options={{ tabBarIcon: () => <Text>🗓️</Text> }} />
     <InstructorTab.Screen name="Feedback" component={InstructorFeedbackScreen} options={{ tabBarIcon: () => <Text>💬</Text> }} />
+    <InstructorTab.Screen name="Analytics" component={InstructorReportsScreen} options={{ tabBarIcon: () => <Text>📈</Text> }} />
   </InstructorTab.Navigator>
 );
 
@@ -77,6 +83,8 @@ const StudentTabs = () => (
     <StudentTab.Screen name="Dashboard" component={StudentDashboardScreen} options={{ tabBarIcon: () => <Text>📊</Text> }} />
     <StudentTab.Screen name="Sessions" component={StudentSessionsScreen} options={{ tabBarIcon: () => <Text>📍</Text> }} />
     <StudentTab.Screen name="Feedback" component={StudentFeedbackScreen} options={{ tabBarIcon: () => <Text>💬</Text> }} />
+    <StudentTab.Screen name="Chatbot" component={StudentChatbotScreen} options={{ tabBarIcon: () => <Text>🤖</Text> }} />
+    <StudentTab.Screen name="Chat" component={StudentChatScreen} options={{ tabBarIcon: () => <Text>🆘</Text> }} />
   </StudentTab.Navigator>
 );
 

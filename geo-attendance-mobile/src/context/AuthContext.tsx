@@ -31,7 +31,7 @@ interface AuthContextValue {
   user: AppUser | null;
   firebaseUser: User | null;
   loading: boolean;
-  login: (email: string, password: string, role?: UserRole) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
 }
@@ -104,50 +104,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     return unsubscribe;
   }, [pendingRole]);
 
-  const login = async (email: string, password: string, role?: UserRole) => {
-    if (role) setPendingRole(role);
+  const login = async (email: string, password: string) => {
     const normalizedEmail = email.trim();
     
     try {
-      // 1. Try Firebase Auth (Real Users)
-      const credential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
+      // 1. Try Backend Login FIRST (Matching Web App logic)
+      const { authApi } = require('../services/api');
+      const loginData = await authApi.login(normalizedEmail, password);
+      const { user: backendUser, token: backendToken } = loginData;
       
-      const userDoc = await getDoc(doc(db, 'users', credential.user.uid));
-      if (userDoc.exists()) {
-        const actualRole = normalizeBackendRole(String(userDoc.data()?.role));
-        const selectedRole = role || 'student';
-        if (selectedRole !== actualRole) {
-          await signOut(auth);
-          throw new Error('RoleMismatch');
-        }
+      const appUser: AppUser = {
+        id: backendUser.id,
+        uid: backendUser.id,
+        email: backendUser.email,
+        name: backendUser.name,
+        role: normalizeBackendRole(backendUser.role),
+      };
+      
+      setUser(appUser);
+      if (backendToken) {
+        await AsyncStorage.setItem('userToken', backendToken);
+        await AsyncStorage.setItem('userData', JSON.stringify(appUser));
       }
-      
-      const idToken = await credential.user.getIdToken();
-      await AsyncStorage.setItem('userToken', idToken);
-      // user state is updated via onAuthStateChanged
-    } catch (firebaseErr: any) {
-      // 2. Fallback to Backend Login (Mock Users / Legacy)
+    } catch (backendErr: any) {
+      // 2. Fallback to Firebase Auth ONLY if backend login fails
       try {
-        const { authApi } = require('../services/api');
-        const loginData = await authApi.login(normalizedEmail, password, (role || 'student') as any);
-        const { user: backendUser, token: backendToken } = loginData;
+        const credential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
         
-        const mockUser: AppUser = {
-          id: backendUser.id,
-          uid: backendUser.id,
-          email: backendUser.email,
-          name: backendUser.name,
-          role: normalizeBackendRole(backendUser.role),
-        };
-        
-        setUser(mockUser);
-        if (backendToken) {
-          await AsyncStorage.setItem('userToken', backendToken);
-          await AsyncStorage.setItem('userData', JSON.stringify(mockUser));
+        const userDoc = await getDoc(doc(db, 'users', credential.user.uid));
+        if (userDoc.exists()) {
+          const actualRole = normalizeBackendRole(String(userDoc.data()?.role));
+          const appUser: AppUser = {
+            id: credential.user.uid,
+            uid: credential.user.uid,
+            email: credential.user.email,
+            name: userDoc.data()?.name || credential.user.displayName || 'User',
+            role: actualRole,
+          };
+          setUser(appUser);
+          await AsyncStorage.setItem('userData', JSON.stringify(appUser));
         }
-      } catch (backendErr: any) {
-        // If both fail, throw the most relevant error
-        if (firebaseErr.message === 'RoleMismatch') throw firebaseErr;
+        
+        const idToken = await credential.user.getIdToken();
+        await AsyncStorage.setItem('userToken', idToken);
+      } catch (firebaseErr: any) {
         throw backendErr;
       }
     }

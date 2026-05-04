@@ -24,7 +24,9 @@ const studentNav = [
   { to: '/student', label: 'Home', icon: Home },
   { to: '/student/schedule', label: 'My Schedule', icon: CalendarDays },
   { to: '/student/profile', label: 'Profile', icon: User },
-  { to: '/student/feedback', label: 'Feedback', icon: MessageSquare },
+  { to: '/student/feedback', label: 'Feedback', icon: Star },
+  { to: '/student/chatbot', label: 'Bot Assistant', icon: MessageSquare },
+  { to: '/student/chat', label: 'Support', icon: MessageSquare },
 ];
 
 const adminNav = [
@@ -34,13 +36,17 @@ const adminNav = [
   { to: '/admin/sessions', label: 'Sessions', icon: CalendarDays },
   { to: '/admin/departments', label: 'Departments', icon: Building2 },
   { to: '/admin/courses', label: 'Courses', icon: BookOpen },
+  { to: '/admin/groups', label: 'Groups', icon: Users },
   { to: '/admin/classrooms', label: 'Classrooms', icon: MapPin },
-  { to: '/admin/feedback', label: 'Course Feedback', icon: MessageSquare },
+  { to: '/admin/feedback', label: 'Course Feedback', icon: Star },
+  { to: '/admin/policies', label: 'Bot Policies', icon: BookOpen },
+  { to: '/admin/chats', label: 'Student Support', icon: MessageSquare },
 ];
 
 const facultyNav = [
   { to: '/faculty/sessions', label: 'My Sessions', icon: CalendarDays },
   { to: '/faculty/ratings', label: 'My Ratings', icon: Star },
+  { to: '/faculty/reports', label: 'Analytics', icon: LayoutDashboard },
 ];
 
 function getNav(role: UserRole) {

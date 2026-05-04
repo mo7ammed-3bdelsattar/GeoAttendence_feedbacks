@@ -1,6 +1,7 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { initializeAuth, getReactNativePersistence, getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyCKhmp5S-YHMdwplWLux_BmNtHwLuuizyo',
@@ -17,7 +18,10 @@ const app =
   getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
 // getAuth works with Expo's managed workflow; Firebase JS SDK handles persistence
-export const auth = getAuth(app);
+// However, to fix the persistence warning in React Native, we use initializeAuth explicitly
+export const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(ReactNativeAsyncStorage)
+});
 
 export const db = getFirestore(app);
 

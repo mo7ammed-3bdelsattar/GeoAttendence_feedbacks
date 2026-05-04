@@ -9,6 +9,10 @@ import * as sessionController from '../controllers/sessionController';
 import * as feedbackController from '../controllers/feedbackController';
 import * as attendanceController from '../controllers/attendanceController';
 import * as notificationController from '../controllers/notificationController';
+import * as chatbotController from '../controllers/chatbotController';
+import * as chatController from '../controllers/chatController';
+import * as groupController from '../controllers/groupController';
+import * as reportController from '../controllers/reportController';
 import { getMySchedule, getStudentCourses, getStudentDashboard, studentScheduleController } from '../controllers/studentController';
 import { requireStudentAuth } from '../middleware/authGuard';
 import { requireRole } from '../middleware/requireRole';
@@ -74,14 +78,26 @@ router.patch('/enrollments/:id', enrollmentController.updateEnrollment);
 router.delete('/enrollments/:id', enrollmentController.unenrollStudent);
 
 // Session routes
-router.post('/sessions', sessionController.createSession);
-router.get('/sessions', sessionController.getSessions);
-router.get('/sessions/faculty/:id', sessionController.getSessionsByFaculty);
-router.get('/sessions/student/:id', sessionController.getSessionsByStudent);
-router.put('/sessions/:id', sessionController.updateSession);
-router.delete('/sessions/:id', sessionController.deleteSession);
-router.post('/sessions/:id/start', sessionController.startSessionById);
-router.post('/sessions/:id/end', sessionController.endSessionById);
+router.post('/sessions', requireRole(['admin', 'faculty']), sessionController.createSession);
+router.get('/sessions', requireRole(['admin', 'faculty', 'student']), sessionController.getSessions);
+router.get('/sessions/faculty/:id', requireRole(['admin', 'faculty']), sessionController.getSessionsByFaculty);
+router.get('/sessions/student/:id', requireRole(['admin', 'student']), sessionController.getSessionsByStudent);
+router.put('/sessions/:id', requireRole(['admin', 'faculty']), sessionController.updateSession);
+router.delete('/sessions/:id', requireRole(['admin', 'faculty']), sessionController.deleteSession);
+
+// New unified session control routes
+router.post('/sessions/start', requireRole(['admin', 'faculty']), sessionController.startSession);
+router.post('/sessions/end', requireRole(['admin', 'faculty']), sessionController.endSession);
+router.get('/sessions/:sessionId/qr', requireRole(['admin', 'faculty']), sessionController.getSessionQr);
+router.post('/sessions/checkin', requireRole('student'), sessionController.checkInWithQr);
+router.post('/sessions/checkout', requireRole('student'), sessionController.checkOutWithQr);
+router.post('/sessions/checkin-location', requireRole('student'), sessionController.checkInWithLocation);
+router.post('/sessions/checkout-location', requireRole('student'), sessionController.checkOutWithLocation);
+router.get('/sessions/:sessionId/summary', requireRole(['admin', 'faculty']), sessionController.getSessionSummary);
+
+// Keep legacy routes for backward compatibility if needed
+router.post('/sessions/:id/start', requireRole(['admin', 'faculty']), sessionController.startSessionById);
+router.post('/sessions/:id/end', requireRole(['admin', 'faculty']), sessionController.endSessionById);
 
 // Attendance routes
 router.post('/attendance', attendanceController.markAttendance);
@@ -103,5 +119,27 @@ router.get('/student/schedule', studentScheduleController.getSchedule);
 router.post('/student/courses', studentScheduleController.saveCourses);
 router.get('/student/courses/:studentId', getStudentCourses);
 router.get('/student/dashboard/:studentId', getStudentDashboard);
+
+// Chatbot routes
+router.post('/chatbot/ask', chatbotController.askChatbot);
+router.get('/admin/policies', requireRole('admin'), chatbotController.getPolicies);
+router.post('/admin/policies', requireRole('admin'), chatbotController.upsertPolicy);
+router.delete('/admin/policies/:id', requireRole('admin'), chatbotController.deletePolicy);
+
+// Chat routes
+router.get('/chats', chatController.getMyChats);
+router.get('/chats/:chatId/messages', chatController.getMessages);
+router.post('/chats/messages', chatController.sendMessage);
+
+// Group routes
+router.get('/groups', groupController.getGroups);
+router.post('/admin/groups', requireRole('admin'), groupController.createGroup);
+router.patch('/admin/groups/:id', requireRole('admin'), groupController.updateGroup);
+router.delete('/admin/groups/:id', requireRole('admin'), groupController.deleteGroup);
+
+// Report routes
+router.get('/reports/instructor/:facultyId', requireRole(['admin', 'faculty']), reportController.getInstructorReport);
+router.get('/reports/admin', requireRole('admin'), reportController.getAdminReport);
+router.get('/reports/admin/attendance', requireRole('admin'), reportController.getAdminAttendanceReport);
 
 export default router;

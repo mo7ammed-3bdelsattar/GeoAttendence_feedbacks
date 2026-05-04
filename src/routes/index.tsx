@@ -11,6 +11,8 @@ import { StudentProfilePage } from '../pages/student/StudentProfilePage.tsx';
 import { StudentFeedbackPage } from '../pages/student/StudentFeedbackPage.tsx';
 import { StudentSessionsPage } from '../pages/student/StudentSessionsPage.tsx';
 import { StudentSchedulePage } from '../pages/student/StudentSchedulePage.tsx';
+import { StudentChatbotPage } from '../pages/student/StudentChatbotPage.tsx';
+import { StudentChatPage } from '../pages/student/StudentChatPage.tsx';
 
 import { AdminOverviewPage } from '../pages/admin/AdminOverviewPage.tsx';
 import { AdminUsersPage } from '../pages/admin/AdminUsersPage.tsx';
@@ -21,8 +23,14 @@ import { AdminCoursesPage } from '../pages/admin/AdminCoursesPage.tsx';
 import { AdminClassroomsPage } from '../pages/admin/AdminClassroomsPage.tsx';
 import { AdminSessionsPage } from '../pages/admin/AdminSessionsPage.tsx';
 import { AdminFeedbackAuditPage } from '../pages/admin/AdminFeedbackAuditPage.tsx';
+import { AdminPoliciesPage } from '../pages/admin/AdminPoliciesPage.tsx';
+import { AdminGroupsPage } from '../pages/admin/AdminGroupsPage.tsx';
+import { AdminChatThreadsPage } from '../pages/admin/AdminChatThreadsPage.tsx';
+import { AdminChatPage } from '../pages/admin/AdminChatPage.tsx';
+
 import { FacultySessionsPage } from '../pages/faculty/FacultySessionsPage.tsx';
 import { FacultyFeedbackPage } from '../pages/faculty/FacultyFeedbackPage.tsx';
+import { FacultyReportsPage } from '../pages/faculty/FacultyReportsPage.tsx';
 import { AttendanceSummaryPage } from '../pages/faculty/AttendanceSummaryPage.tsx';
 import { RoleGuard } from '../components/RoleGuard.tsx';
 
@@ -98,6 +106,14 @@ export const router = createBrowserRouter([
     path: '/student/schedule',
     element: <ProtectedRoute allowedRoles={['student']}><StudentSchedulePage /></ProtectedRoute>,
   },
+  {
+    path: '/student/chatbot',
+    element: <ProtectedRoute allowedRoles={['student']}><StudentChatbotPage /></ProtectedRoute>,
+  },
+  {
+    path: '/student/chat',
+    element: <ProtectedRoute allowedRoles={['student']}><StudentChatPage /></ProtectedRoute>,
+  },
 
   {
     path: '/faculty',
@@ -135,6 +151,16 @@ export const router = createBrowserRouter([
       <ProtectedRoute>
         <RoleGuard requiredRole="faculty" screen="Faculty Attendance Summary">
           <AttendanceSummaryPage />
+        </RoleGuard>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/faculty/reports',
+    element: (
+      <ProtectedRoute>
+        <RoleGuard requiredRole="faculty" screen="Faculty Reports">
+          <FacultyReportsPage />
         </RoleGuard>
       </ProtectedRoute>
     ),
@@ -189,10 +215,46 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: '/admin/groups',
+    element: (
+      <ProtectedRoute allowedRoles={['admin']}>
+        <AdminGroupsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
     path: '/admin/feedback',
     element: (
       <ProtectedRoute allowedRoles={['admin']}>
         <AdminFeedbackAuditPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/policies',
+    element: (
+      <ProtectedRoute allowedRoles={['admin']}>
+        <AdminPoliciesPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/chatbot',
+    element: <ProtectedRoute allowedRoles={['admin']}><StudentChatbotPage /></ProtectedRoute>,
+  },
+  {
+    path: '/admin/chats',
+    element: (
+      <ProtectedRoute allowedRoles={['admin']}>
+        <AdminChatThreadsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/chat/:studentId',
+    element: (
+      <ProtectedRoute allowedRoles={['admin']}>
+        <AdminChatPage />
       </ProtectedRoute>
     ),
   },

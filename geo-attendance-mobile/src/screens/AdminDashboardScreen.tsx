@@ -16,11 +16,12 @@ const AdminDashboardScreen: React.FC = () => {
 
   const fetchStats = async () => {
     try {
+      console.log('[AdminDashboard] Fetching stats from:', adminApi);
       const [users, courses, classrooms, sessions] = await Promise.all([
-        adminApi.getUsers(),
-        adminApi.getCourses(),
-        adminApi.getClassrooms(),
-        sessionApi.getSessions()
+        adminApi.getUsers().catch(e => { console.error('getUsers failed:', e.message); throw e; }),
+        adminApi.getCourses().catch(e => { console.error('getCourses failed:', e.message); throw e; }),
+        adminApi.getClassrooms().catch(e => { console.error('getClassrooms failed:', e.message); throw e; }),
+        sessionApi.getSessions().catch(e => { console.error('getSessions failed:', e.message); throw e; })
       ]);
       setStats({
         users: users.length,
@@ -28,8 +29,8 @@ const AdminDashboardScreen: React.FC = () => {
         classrooms: classrooms.length,
         sessions: sessions.length,
       });
-    } catch (error) {
-      console.error('Failed to fetch admin stats:', error);
+    } catch (error: any) {
+      console.error('Failed to fetch admin stats:', error.message || error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -108,6 +109,11 @@ const AdminDashboardScreen: React.FC = () => {
         <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate('FeedbackAudit')}>
           <Text style={styles.actionIcon}>⭐</Text>
           <Text style={styles.actionText}>Feedback Audit</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate('AdminReports')}>
+          <Text style={styles.actionIcon}>📈</Text>
+          <Text style={styles.actionText}>Attendance Analytics</Text>
         </TouchableOpacity>
       </View>
       

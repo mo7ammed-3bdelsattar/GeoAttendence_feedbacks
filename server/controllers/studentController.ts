@@ -324,10 +324,47 @@ export const getStudentDashboard = async (req: Request, res: Response) => {
         }
 
         const courseMap = Object.fromEntries(courses.map((course) => [course.id, course]));
-        const normalizedSessions = sessions.map((session) => ({
-            ...session,
-            courseName: session.courseName || courseMap[session.courseId]?.name || 'Unknown Course'
-        }));
+        
+        // Fetch instructors for sessions
+        const instructorIds = Array.from(new Set(sessions.map(s => s.facultyId || s.instructorId))).filter(Boolean);
+        let instructorsMap: Record<string, any> = {};
+        
+        if (instructorIds.length > 0) {
+            // Firestore 'in' query supports up to 30 IDs
+            for (let i = 0; i < instructorIds.length; i += 30) {
+                const chunk = instructorIds.slice(i, i + 30);
+                const userSnap = await db.collection('users').where('__name__', 'in', chunk).get();
+                userSnap.docs.forEach(doc => {
+                    instructorsMap[doc.id] = doc.data();
+                });
+            }
+        }
+
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        const normalizedSessions = sessions.map((session) => {
+            const fId = session.facultyId || session.instructorId;
+            const instructor = instructorsMap[fId];
+            
+            // Logic to match sessionController.ts enrichSessions
+            const sessionDate = session.date ? (typeof session.date === 'string' ? session.date.split('T')[0] : '') : '';
+            const isDateToday = sessionDate === todayStr;
+            const status = String(session.status || '').toLowerCase();
+            const isActiveInDb = session.isActive === true || status === 'active';
+
+            return {
+                ...session,
+                isActive: isActiveInDb && isDateToday,
+                courseName: session.courseName || courseMap[session.courseId]?.name || 'Unknown Course',
+                instructorName: instructor?.name || 'Unknown Instructor',
+                faculty: instructor ? { id: fId, ...instructor } : null
+            };
+        }).sort((a, b) => {
+            // Prioritize today's sessions, then by start time
+            if (a.isActive && !b.isActive) return -1;
+            if (!a.isActive && b.isActive) return 1;
+            return (a.startTime || '').localeCompare(b.startTime || '');
+        });
 
         const [feedbackCamelCaseSnapshot, feedbackSnakeCaseSnapshot] = await Promise.all([
             db.collection('feedback').where('studentId', '==', studentId).get(),

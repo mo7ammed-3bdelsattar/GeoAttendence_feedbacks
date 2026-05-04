@@ -11,8 +11,8 @@ const normalizeRole = (role?: string) => {
 
 export const login = async (req: Request, res: Response) => {
   try {
-    const { email, password, role, token } = req.body;
-    console.log('Login attempt:', { email, role, hasToken: !!token });
+    const { email, password, token } = req.body;
+    console.log('Login attempt:', { email, hasToken: !!token });
 
     let uid = '';
     let finalEmail = email?.toLowerCase().trim();
@@ -31,10 +31,6 @@ export const login = async (req: Request, res: Response) => {
 
       const userData = userDoc.data();
       const normalizedUserRole = normalizeRole(String(userData?.role));
-      const normalizedSelectedRole = normalizeRole(role);
-      if (normalizedUserRole !== normalizedSelectedRole) {
-        return res.status(403).json({ error: 'Role mismatch.' });
-      }
 
       const geoToken = `geo-${Buffer.from(JSON.stringify({ sub: uid, role: normalizedUserRole, email: finalEmail })).toString('base64')}.${Date.now()}`;
 
@@ -65,13 +61,8 @@ export const login = async (req: Request, res: Response) => {
         return res.status(401).json({ error: 'Invalid credentials. Incorrect password.' });
       }
 
-      // 3. Verify Role
+      // 3. Get Role from DB
       const normalizedUserRole = normalizeRole(userData.role);
-      const normalizedSelectedRole = normalizeRole(role);
-
-      if (normalizedUserRole !== normalizedSelectedRole) {
-        return res.status(403).json({ error: `Role mismatch. This account is registered as ${normalizedUserRole}.` });
-      }
 
       console.log(`[AUTH] Login success for: ${finalEmail} (${normalizedUserRole})`);
 

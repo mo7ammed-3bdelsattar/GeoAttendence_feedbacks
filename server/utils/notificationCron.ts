@@ -1,5 +1,6 @@
 import cron from 'node-cron';
 import { db, messaging } from '../config/firebase-admin';
+import { generateAttendanceSummary } from '../controllers/sessionController';
 
 /**
  * Logic to send notifications to students enrolled in sessions starting in N minutes
@@ -81,6 +82,56 @@ export async function sendUpcomingSessionNotifications(minutesAhead: number = 15
 }
 
 /**
+ * Automatically end sessions that have passed their end time
+ */
+export async function autoEndExpiredSessions() {
+  try {
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0];
+    const currentHours = now.getHours();
+    const currentMinutes = now.getMinutes();
+    const currentTimeStr = `${String(currentHours).padStart(2, '0')}:${String(currentMinutes).padStart(2, '0')}`;
+
+    console.log(`[CRON] Checking for expired sessions at ${currentTimeStr} on ${dateStr}`);
+
+    // Find sessions that are still active but whose end time has passed
+    const activeSessionsSnapshot = await db.collection('sessions')
+      .where('status', '==', 'active')
+      .where('date', '==', dateStr)
+      .get();
+
+    if (activeSessionsSnapshot.empty) return;
+
+    let endedCount = 0;
+
+    for (const sessionDoc of activeSessionsSnapshot.docs) {
+      const data = sessionDoc.data();
+      if (data.endTime && data.endTime < currentTimeStr) {
+        await sessionDoc.ref.update({ 
+          status: 'ended', 
+          endedAt: new Date().toISOString() 
+        });
+        
+        // Generate attendance summary immediately after ending
+        try {
+            await generateAttendanceSummary(sessionDoc.id);
+        } catch (summaryErr) {
+            console.error(`[CRON] Failed to generate summary for ${sessionDoc.id}:`, summaryErr);
+        }
+        
+        endedCount++;
+      }
+    }
+
+    if (endedCount > 0) {
+      console.log(`[CRON] Automatically ended ${endedCount} expired sessions.`);
+    }
+  } catch (error) {
+    console.error('[CRON AUTO-END ERROR]', error);
+  }
+}
+
+/**
  * Initialize the cron job to run every minute
  */
 export function initNotificationCron() {
@@ -89,5 +140,6 @@ export function initNotificationCron() {
   // Run every minute
   cron.schedule('* * * * *', async () => {
     await sendUpcomingSessionNotifications(15);
+    await autoEndExpiredSessions();
   });
 }

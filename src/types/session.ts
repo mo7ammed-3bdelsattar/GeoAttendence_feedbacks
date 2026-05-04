@@ -17,6 +17,8 @@ export interface Session {
   courseCode?: string;
   title?: string;
   attended?: boolean;
+  groupId?: string;
+  isActive?: boolean;
 }
 
 export interface CheckIn {

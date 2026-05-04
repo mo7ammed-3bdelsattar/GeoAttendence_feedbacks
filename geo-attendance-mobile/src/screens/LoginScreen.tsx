@@ -50,22 +50,16 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const handleLogin = async () => {
     if (!validate()) return;
     setLoading(true);
-    setRoleError(null);
     try {
-      await login(email.trim(), password, role as any);
+      await login(email.trim(), password);
       // Navigation handled by AuthContext listener in AppNavigator
     } catch (err: any) {
       const msg =
-        err.message === 'RoleMismatch'
-          ? 'The selected role does not match your account type. Please choose the correct role and try again.'
-          : err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password'
-            ? 'Invalid email or password.'
-            : err.code === 'auth/too-many-requests'
-              ? 'Too many attempts. Please try again later.'
-              : err.message ?? 'Login failed.';
-      if (err.message === 'RoleMismatch') {
-        setRoleError('This account belongs to a different role. Please choose the correct role above.');
-      }
+        err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password'
+          ? 'Invalid email or password.'
+          : err.code === 'auth/too-many-requests'
+            ? 'Too many attempts. Please try again later.'
+            : err.message ?? 'Login failed.';
       Alert.alert('Login Failed', msg);
     } finally {
       setLoading(false);
@@ -101,37 +95,6 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Welcome Back</Text>
           <Text style={styles.cardSubtitle}>Sign in to your account</Text>
-
-          {/* Role Selector */}
-          <View style={styles.roleSection}>
-            <Text style={styles.roleLabel}>I am a</Text>
-            <View style={styles.roleRow}>
-              {ROLES.map((r) => (
-                <TouchableOpacity
-                  key={r.value}
-                  style={[
-                    styles.roleChip,
-                    role === r.value && styles.roleChipActive,
-                  ]}
-                  onPress={() => {
-                    setRole(r.value as 'student' | 'instructor' | 'admin');
-                    setRoleError(null);
-                  }}
-                  activeOpacity={0.75}
-                >
-                  <Text
-                    style={[
-                      styles.roleChipText,
-                      role === r.value && styles.roleChipTextActive,
-                    ]}
-                  >
-                    {r.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            {roleError ? <Text style={styles.roleError}>{roleError}</Text> : null}
-          </View>
 
           {/* Fields */}
           <InputField

@@ -27,6 +27,16 @@ export const submitFeedback = async (req: Request, res: Response) => {
 
     const studentId = String(payload.studentId);
     const courseId = String(payload.courseId);
+
+    // Find the student's group for this course
+    const enrollmentSnap = await db.collection('enrollments')
+      .where('studentId', '==', studentId)
+      .where('courseId', '==', courseId)
+      .limit(1)
+      .get();
+    
+    const groupId = !enrollmentSnap.empty ? enrollmentSnap.docs[0].data().groupId || null : null;
+
     const [existingCamelCase, existingSnakeCase] = await Promise.all([
       db
         .collection('feedback')
@@ -48,8 +58,10 @@ export const submitFeedback = async (req: Request, res: Response) => {
     const feedbackData = {
       studentId,
       courseId,
+      groupId,
       student_id: studentId,
       course_id: courseId,
+      group_id: groupId,
       rating: Number(payload.rating),
       message: payload.message?.trim() ?? '',
       createdAt: new Date().toISOString()

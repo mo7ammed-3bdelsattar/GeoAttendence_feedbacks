@@ -15,16 +15,20 @@ export type AdminTabParamList = {
   Classrooms: undefined;
   Enrollments: undefined;
   FeedbackAudit: undefined;
+  AdminReports: undefined;
 };
 
 export type InstructorTabParamList = {
   Dashboard: undefined;
   Sessions: undefined;
   Feedback: undefined;
+  Analytics: undefined;
 };
 
 export type StudentTabParamList = {
   Dashboard: undefined;
   Sessions: undefined;
   Feedback: undefined;
+  Chatbot: undefined;
+  Chat: undefined;
 };
