@@ -8,11 +8,11 @@ import { db } from '../config/firebase-admin';
 
 export const getMyChats = async (req: Request, res: Response) => {
   try {
-    const { userId, role } = req.query; // Usually extracted from auth middleware
-    if (!userId) return res.status(400).json({ error: 'userId is required' });
-
+    const { userId, role } = req.query;
+    
     let query = db.collection('chats');
     if (role === 'student') {
+      if (!userId) return res.status(400).json({ error: 'userId is required for students' });
       query = query.where('studentId', '==', userId) as any;
     }
 

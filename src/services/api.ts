@@ -451,4 +451,85 @@ export const aiApi = {
   },
 };
 
+export const chatbotApi = {
+  async getPolicies(): Promise<any[]> {
+    const response = await api.get('/admin/policies');
+    return response.data.data || response.data;
+  },
+
+  async upsertPolicy(payload: any): Promise<any> {
+    const response = await api.post('/admin/policies', payload);
+    return response.data.data || response.data;
+  },
+
+  async deletePolicy(id: string): Promise<void> {
+    await api.delete(`/admin/policies/${id}`);
+  },
+
+  async ask(question: string): Promise<{ response: string }> {
+    const response = await api.post('/chatbot/ask', { query: question });
+    return response.data.data || response.data;
+  }
+};
+
+export const chatApi = {
+  async getMyChats(userId?: string, role?: string): Promise<any[]> {
+    const response = await api.get('/chats', { params: { userId, role } });
+    return response.data.data || response.data;
+  },
+
+  async getMessages(chatId: string): Promise<any[]> {
+    const response = await api.get(`/chats/${chatId}/messages`);
+    return response.data.data || response.data;
+  },
+
+  async sendMessage(payload: {
+    studentId: string;
+    senderId: string;
+    text: string;
+    isAdmin: boolean;
+  }): Promise<any> {
+    const response = await api.post('/chats/messages', payload);
+    return response.data.data || response.data;
+  }
+};
+
+export const groupApi = {
+  async getGroups(): Promise<any[]> {
+    const response = await api.get('/groups');
+    return response.data.data || response.data;
+  },
+
+  async createGroup(payload: any): Promise<any> {
+    const response = await api.post('/admin/groups', payload);
+    return response.data.data || response.data;
+  },
+
+  async updateGroup(id: string, payload: any): Promise<any> {
+    const response = await api.patch(`/admin/groups/${id}`, payload);
+    return response.data.data || response.data;
+  },
+
+  async deleteGroup(id: string): Promise<void> {
+    await api.delete(`/admin/groups/${id}`);
+  }
+};
+
+export const reportApi = {
+  async getInstructorReport(facultyId: string): Promise<any> {
+    const response = await api.get(`/reports/instructor/${facultyId}`);
+    return response.data.data || response.data;
+  },
+
+  async getAdminReport(): Promise<any> {
+    const response = await api.get('/reports/admin');
+    return response.data.data || response.data;
+  },
+
+  async getAdminAttendanceReport(): Promise<any> {
+    const response = await api.get('/reports/admin/attendance');
+    return response.data.data || response.data;
+  }
+};
+
 export default api;

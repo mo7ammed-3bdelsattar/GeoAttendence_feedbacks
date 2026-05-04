@@ -12,6 +12,7 @@ import { StudentFeedbackPage } from '../pages/student/StudentFeedbackPage.tsx';
 import { StudentSessionsPage } from '../pages/student/StudentSessionsPage.tsx';
 import { StudentSchedulePage } from '../pages/student/StudentSchedulePage.tsx';
 import { StudentActivityDetailsPage } from '../pages/student/StudentActivityDetailsPage.tsx';
+import { StudentChatbotPage } from '../pages/student/StudentChatbotPage.tsx';
 
 import { AdminOverviewPage } from '../pages/admin/AdminOverviewPage.tsx';
 import { AdminUsersPage } from '../pages/admin/AdminUsersPage.tsx';

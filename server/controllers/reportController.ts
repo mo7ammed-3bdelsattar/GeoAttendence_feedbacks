@@ -25,6 +25,13 @@ export const getInstructorReport = async (req: Request, res: Response) => {
         const sessions = sessionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
         const sessionCount = sessions.length;
 
+        // 5. Get feedback for this group to calculate averageRating
+        const feedbackSnap = await db.collection('feedback').where('groupId', '==', group.id).get();
+        const feedbacks = feedbackSnap.docs.map(doc => doc.data());
+        const averageRating = feedbacks.length > 0 
+          ? Number((feedbacks.reduce((acc, f) => acc + (f.rating || 0), 0) / feedbacks.length).toFixed(1))
+          : 0;
+
         const students = await Promise.all(studentIds.map(async (studentId) => {
           const userSnap = await db.collection('users').doc(studentId).get();
           const userData = userSnap.data();
@@ -51,11 +58,17 @@ export const getInstructorReport = async (req: Request, res: Response) => {
           };
         }));
 
+        const groupAttendanceRate = students.length > 0
+          ? Number((students.reduce((acc, s) => acc + s.attendancePercentage, 0) / students.length).toFixed(1))
+          : 0;
+
         return {
           groupId: group.id,
           groupName: group.name,
           studentCount: studentIds.length,
           sessionCount,
+          averageRating,
+          attendanceRate: groupAttendanceRate,
           students
         };
       }));
@@ -66,16 +79,23 @@ export const getInstructorReport = async (req: Request, res: Response) => {
         courseCode: course.code,
         groups: groupData
       };
-    }));
+      }));
 
-    res.json({
+      // Flatten groups for frontend
+      const allGroups = courseReports.flatMap(c => c.groups.map(g => ({
+      ...g,
+      courseName: c.courseName,
+      courseCode: c.courseCode
+      })));
+
+      res.json({
       success: true,
       data: {
         facultyId,
+        groups: allGroups,
         courses: courseReports
       }
-    });
-
+      });
   } catch (error: any) {
     console.error('[Instructor Report Error]', error);
     res.status(500).json({ error: error.message });
