@@ -2,6 +2,36 @@ import { Request, Response } from 'express';
 import admin, { db, auth as adminAuth } from '../config/firebase-admin';
 import { sendUpcomingSessionNotifications } from '../utils/notificationCron';
 
+const USE_MOCK_AUTH = process.env.USE_MOCK_AUTH === 'true';
+
+// Mock users for testing when USE_MOCK_AUTH is true
+const MOCK_USERS = [
+  {
+    id: 'admin-1',
+    name: 'أحمد أيمن',
+    email: 'ahmedaymanmido307@gmail.com',
+    role: 'admin'
+  },
+  {
+    id: 's-yassin',
+    name: 'ياسين محمد السعدي',
+    email: 'yassin.mohamed@student.uni.edu',
+    role: 'student'
+  },
+  {
+    id: 'f-mohamed',
+    name: 'د. محمد علي',
+    email: 'm.ali@uni.edu',
+    role: 'faculty'
+  },
+  {
+    id: 'dev-ali-admin-uni-edu',
+    name: 'Dev Ali Admin',
+    email: 'dev-ali-admin@uni.edu',
+    role: 'admin'
+  }
+];
+
 const ALLOWED_ROLES = ['student', 'faculty', 'admin'] as const;
 
 type UserRole = typeof ALLOWED_ROLES[number];
@@ -25,8 +55,21 @@ const validateRole = (role?: string): UserRole => {
 export const getUsers = async (req: Request, res: Response) => {
   try {
     const { role } = req.query;
+
+    if (USE_MOCK_AUTH) {
+      console.log('[USER CONTROLLER] Using mock users...', { role });
+      let users = MOCK_USERS;
+
+      if (role) {
+        users = MOCK_USERS.filter(user => user.role === String(role));
+      }
+
+      console.log('[USER CONTROLLER] Mock query successful:', { usersCount: users.length });
+      return res.json(users);
+    }
+
     console.log('[USER CONTROLLER] Fetching users from Firestore...', { role });
-    
+
     const usersCol = db.collection('users');
     let q: admin.firestore.Query = usersCol;
 
@@ -36,7 +79,7 @@ export const getUsers = async (req: Request, res: Response) => {
 
     const snapshot = await q.get();
     console.log('[USER CONTROLLER] Firestore query successful:', { docsCount: snapshot.docs.length });
-    
+
     const users = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
@@ -49,7 +92,7 @@ export const getUsers = async (req: Request, res: Response) => {
       code: error.code,
       details: error.details || 'No additional details'
     });
-    res.status(500).json({ 
+    res.status(500).json({
       error: error.message,
       code: error.code,
       details: 'Check server logs for more information'
