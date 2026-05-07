@@ -307,15 +307,15 @@ const StudentSessionsScreen: React.FC = () => {
                   <Text style={styles.buttonText}>Check-out via Location</Text>
                 )}
               </TouchableOpacity>
-            )
-          ) : (
-            <View style={styles.closedNote}>
-               <Text style={styles.closedText}>
-                 {isAttended ? '✅ Attendance Recorded' : 'Waiting for session to start'}
-               </Text>
-            </View>
-          )}
-        </View>
+            )}
+          </View>
+        ) : (
+          <View style={styles.closedNote}>
+             <Text style={styles.closedText}>
+               {isAttended ? '✅ Attendance Recorded' : 'Waiting for session to start'}
+             </Text>
+          </View>
+        )}
       </View>
     );
   };
