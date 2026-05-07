@@ -43,35 +43,41 @@ export const loginMock = async (req: Request, res: Response) => {
     const isUniversalPassword = typeof password === 'string' && UNIVERSAL_PASSWORDS.has(password.trim());
 
     // 1) Prefer real DB user by email (so role is always accurate)
-    const dbUserSnap = await db.collection('users').where('email', '==', normalizedEmail).limit(1).get();
-    if (!dbUserSnap.empty) {
-      const dbUserDoc = dbUserSnap.docs[0];
-      const dbUser = dbUserDoc.data() as { name?: string; email?: string; role?: string; password?: string };
-      if (dbUser.password && dbUser.password !== password && !isUniversalPassword) {
-        return res.status(401).json({ error: 'Invalid credentials.' });
-      }
+    let dbFallbackFailed = false;
+    try {
+      const dbUserSnap = await db.collection('users').where('email', '==', normalizedEmail).limit(1).get();
+      if (!dbUserSnap.empty) {
+        const dbUserDoc = dbUserSnap.docs[0];
+        const dbUser = dbUserDoc.data() as { name?: string; email?: string; role?: string; password?: string };
+        if (dbUser.password && dbUser.password !== password && !isUniversalPassword) {
+          return res.status(401).json({ error: 'Invalid credentials.' });
+        }
 
-      const normalizedRole =
-        dbUser.role === 'instructor' || dbUser.role === 'doctor'
-          ? 'faculty'
-          : (dbUser.role || 'student');
+        const normalizedRole =
+          dbUser.role === 'instructor' || dbUser.role === 'doctor'
+            ? 'faculty'
+            : (dbUser.role || 'student');
 
-      const geoToken = `geo-${Buffer.from(
-        JSON.stringify({
-          sub: dbUserDoc.id,
+        const geoToken = `geo-${Buffer.from(
+          JSON.stringify({
+            sub: dbUserDoc.id,
+            role: normalizedRole,
+            email: dbUser.email || normalizedEmail
+          })
+        ).toString('base64')}.${Date.now()}`;
+
+        console.log(`[AUTH MOCK] DB-backed login success: ${normalizedEmail} (${normalizedRole})`);
+        return res.json({
+          id: dbUserDoc.id,
+          name: dbUser.name || normalizedEmail.split('@')[0] || 'User',
+          email: dbUser.email || normalizedEmail,
           role: normalizedRole,
-          email: dbUser.email || normalizedEmail
-        })
-      ).toString('base64')}.${Date.now()}`;
-
-      console.log(`[AUTH MOCK] DB-backed login success: ${normalizedEmail} (${normalizedRole})`);
-      return res.json({
-        id: dbUserDoc.id,
-        name: dbUser.name || normalizedEmail.split('@')[0] || 'User',
-        email: dbUser.email || normalizedEmail,
-        role: normalizedRole,
-        token: geoToken
-      });
+          token: geoToken
+        });
+      }
+    } catch (dbError: any) {
+      console.warn('[AUTH MOCK] DB fallback failed or unauthenticated. Falling back to mock users.', dbError.message);
+      dbFallbackFailed = true;
     }
 
     // 2) Fallback to hardcoded mock users
