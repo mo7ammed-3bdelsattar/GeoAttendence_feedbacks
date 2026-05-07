@@ -4,6 +4,7 @@ export * from './enrollment.ts';
 export * from './attendance.ts';
 export * from './feedback.ts';
 export * from './session.ts';
+export * from './book.ts';
 
 export interface Department {
   id: string;

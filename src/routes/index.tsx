@@ -13,6 +13,8 @@ import { StudentSessionsPage } from '../pages/student/StudentSessionsPage.tsx';
 import { StudentSchedulePage } from '../pages/student/StudentSchedulePage.tsx';
 import { StudentActivityDetailsPage } from '../pages/student/StudentActivityDetailsPage.tsx';
 import { StudentChatbotPage } from '../pages/student/StudentChatbotPage.tsx';
+import { StudentBookStorePage } from '../pages/student/StudentBookStorePage.tsx';
+import { StudentCartPage } from '../pages/student/StudentCartPage.tsx';
 
 import { AdminOverviewPage } from '../pages/admin/AdminOverviewPage.tsx';
 import { AdminUsersPage } from '../pages/admin/AdminUsersPage.tsx';
@@ -27,6 +29,8 @@ import { AdminPoliciesPage } from '../pages/admin/AdminPoliciesPage.tsx';
 import { AdminGroupsPage } from '../pages/admin/AdminGroupsPage.tsx';
 import { AdminChatThreadsPage } from '../pages/admin/AdminChatThreadsPage.tsx';
 import { AdminChatPage } from '../pages/admin/AdminChatPage.tsx';
+import { AdminBooksPage } from '../pages/admin/AdminBooksPage.tsx';
+import { AdminTransactionsPage } from '../pages/admin/AdminTransactionsPage.tsx';
 
 import { FacultySessionsPage } from '../pages/faculty/FacultySessionsPage.tsx';
 import { FacultyFeedbackPage } from '../pages/faculty/FacultyFeedbackPage.tsx';
@@ -110,6 +114,14 @@ export const router = createBrowserRouter([
   {
     path: '/student/activity-details',
     element: <ProtectedRoute allowedRoles={['student']}><StudentActivityDetailsPage /></ProtectedRoute>,
+  },
+  {
+    path: '/student/bookstore',
+    element: <ProtectedRoute allowedRoles={['student']}><StudentBookStorePage /></ProtectedRoute>,
+  },
+  {
+    path: '/student/cart',
+    element: <ProtectedRoute allowedRoles={['student']}><StudentCartPage /></ProtectedRoute>,
   },
 
   {
@@ -249,6 +261,22 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowedRoles={['admin']}>
         <AdminChatThreadsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/books',
+    element: (
+      <ProtectedRoute allowedRoles={['admin']}>
+        <AdminBooksPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/book-transactions',
+    element: (
+      <ProtectedRoute allowedRoles={['admin']}>
+        <AdminTransactionsPage />
       </ProtectedRoute>
     ),
   },
