@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { User, LogOut, BookOpen, Clock, Package, ChevronRight, Calendar } from 'lucide-react';
+import { User, LogOut, Clock, Package, ChevronRight, Calendar } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell.tsx';
 import { useAuthStore } from '../../stores/authStore.ts';
 import { useHistoryStore } from '../../stores/historyStore.ts';

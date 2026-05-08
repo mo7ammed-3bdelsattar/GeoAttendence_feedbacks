@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, Edit2, Trash2, X, Save, Image as ImageIcon, Filter } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, X, Save, Image as ImageIcon } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell.tsx';
 import { useBooksStore } from '../../stores/booksStore.ts';
 import toast from 'react-hot-toast';

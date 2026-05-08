@@ -34,3 +34,4 @@ src/.env
 .localnode-20.19.4/
 service-account.json
 tmp-node-tar/
+.vercel

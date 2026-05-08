@@ -4,7 +4,7 @@ import { useCartStore } from '../../stores/cartStore.ts';
 import { useHistoryStore } from '../../stores/historyStore.ts';
 import { useTransactionStore } from '../../stores/transactionStore.ts';
 import { useAuthStore } from '../../stores/authStore.ts';
-import { Trash2, Plus, Minus, ArrowLeft, ShoppingBag, Calendar, ShieldCheck, X, CheckCircle2 } from 'lucide-react';
+import { Trash2, Plus, Minus, ArrowLeft, ShoppingBag, Calendar, ShieldCheck, X } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 

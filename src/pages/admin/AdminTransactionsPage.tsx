@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, ShoppingBag, RotateCcw, User, Calendar, Tag, Database, Hash, ShieldCheck } from 'lucide-react';
+import { Search, ShoppingBag, RotateCcw, User, Calendar, Tag, Database, ShieldCheck } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell.tsx';
 import { useTransactionStore } from '../../stores/transactionStore.ts';
 import { format } from 'date-fns';

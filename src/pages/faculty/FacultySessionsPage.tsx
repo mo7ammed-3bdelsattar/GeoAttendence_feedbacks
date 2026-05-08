@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Clock, MapPin, Search, Plus, BookOpen, Users, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, MapPin, Search, Plus, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AppShell } from '../../components/layout/AppShell.tsx';
 import { TableSkeleton } from '../../components/ui/LoadingSkeleton.tsx';

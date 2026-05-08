@@ -30,6 +30,7 @@ interface Session {
   endTime: string;
   title?: string;
   status: 'active' | 'ended';
+  isActive?: boolean;
   // Joined fields for display
   courseName?: string;
   courseCode?: string;

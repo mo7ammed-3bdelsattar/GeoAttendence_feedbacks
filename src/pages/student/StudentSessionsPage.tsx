@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Calendar, Clock, MapPin, Navigation, CheckCircle2 } from 'lucide-react';
+import { Calendar, Clock, MapPin, Navigation, CheckCircle2, User } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell.tsx';
 import { TableSkeleton } from '../../components/ui/LoadingSkeleton.tsx';
 import { attendanceApi, sessionApi } from '../../services/api.ts';
@@ -156,7 +156,7 @@ export function StudentSessionsPage() {
                 <div className="mt-4 space-y-2 text-sm text-gray-600">
                   <div className="flex items-center gap-2"><Calendar className="h-4 w-4 text-primary" /> {new Date(session.date).toLocaleDateString()}</div>
                   <div className="flex items-center gap-2"><Clock className="h-4 w-4 text-primary" /> {session.startTime} - {session.endTime}</div>
-                  <div className="flex items-center gap-2"><User className="h-4 w-4 text-primary" /> {session.faculty?.name || 'Unknown Instructor'}</div>
+                  <div className="flex items-center gap-2"><User className="h-4 w-4 text-primary" /> {session.facultyName || 'Unknown Instructor'}</div>
                   <div className="flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" /> {session.classroomName}</div>
                 </div>
 

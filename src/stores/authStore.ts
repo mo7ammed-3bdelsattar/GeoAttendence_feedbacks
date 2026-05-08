@@ -9,7 +9,7 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
   /** Restores the user session using the token in storage. */
   restoreSession: (user: User, token: string) => void;
   logout: () => Promise<void>;

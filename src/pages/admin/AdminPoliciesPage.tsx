@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit2, Save, X, BookOpen } from 'lucide-react';
+import { Plus, Trash2, Edit2, Save, BookOpen } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell.tsx';
 import { chatbotApi } from '../../services/api.ts';
 import { toast } from 'react-hot-toast';
