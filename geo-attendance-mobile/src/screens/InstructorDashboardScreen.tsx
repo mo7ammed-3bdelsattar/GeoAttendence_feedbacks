@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, ScrollView, RefreshControl, TouchableOpacity, Image } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import Colors from '../theme/colors';
 import Typography from '../theme/typography';
 import { useAuth } from '../context/AuthContext';
@@ -7,6 +8,7 @@ import { adminApi, feedbackApi } from '../services/api';
 
 const InstructorDashboardScreen: React.FC = () => {
   const { user, logout } = useAuth();
+  const navigation = useNavigation<any>();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [courseCount, setCourseCount] = useState(0);
@@ -19,7 +21,7 @@ const InstructorDashboardScreen: React.FC = () => {
         adminApi.getCourses(),
         feedbackApi.getFeedbackByFaculty(user.id).catch(() => ({ summary: { totalFeedbacks: 0 } }))
       ]);
-      const myCourses = allCourses.filter(c => c.facultyId === user.id);
+      const myCourses = (allCourses || []).filter((c: any) => c.facultyId === user.id);
       setCourseCount(myCourses.length);
       setFeedbackCount(feedbackData?.summary?.totalFeedbacks || 0);
     } catch (error) {
@@ -42,16 +44,27 @@ const InstructorDashboardScreen: React.FC = () => {
     );
   }
 
+  const initials = (user?.name || '').split(' ').filter(Boolean).slice(0, 1).map(n => n[0]).join('').toUpperCase() || 'I';
+
   return (
     <ScrollView 
       style={styles.container}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchDashboardData(); }} tintColor={Colors.primary} />}
     >
       <View style={styles.headerRow}>
-        <View>
-          <Text style={styles.title}>Welcome, {user?.name.split(' ')[0]}</Text>
-          <Text style={styles.subtitle}>Here is your overview</Text>
-        </View>
+        <TouchableOpacity style={styles.headerProfile} onPress={() => navigation.navigate('Profile')}>
+          {user?.photoURL ? (
+            <Image source={{ uri: user.photoURL }} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Text style={styles.avatarText}>{initials}</Text>
+            </View>
+          )}
+          <View>
+            <Text style={styles.title}>Welcome, {(user?.name || 'Instructor').split(' ')[0]}</Text>
+            <Text style={styles.subtitle}>Here is your overview</Text>
+          </View>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.logoutButton} onPress={logout}>
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
@@ -80,6 +93,29 @@ const styles = StyleSheet.create({
   title: { ...Typography.Typography.h1, marginBottom: 4 },
   subtitle: { ...Typography.Typography.body, color: Colors.textSecondary },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, marginTop: 40 },
+  headerProfile: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  avatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 2,
+    borderColor: Colors.primary,
+  },
+  avatarPlaceholder: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: Colors.surfaceLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  avatarText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Colors.primary,
+  },
   logoutButton: { backgroundColor: Colors.surfaceLight, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: Colors.border },
   logoutText: { ...Typography.Typography.label, color: Colors.accent },
   gridContainer: { flexDirection: 'row', justifyContent: 'space-between' },

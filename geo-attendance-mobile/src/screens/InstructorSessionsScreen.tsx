@@ -1,15 +1,32 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl, TouchableOpacity, Image, Modal, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl, TouchableOpacity, Image, Modal, ScrollView, Alert } from 'react-native';
 import Colors from '../theme/colors';
 import Typography from '../theme/typography';
 import { useAuth } from '../context/AuthContext';
 import { adminApi, sessionApi } from '../services/api';
+import InputField from '../components/InputField';
 
 const InstructorSessionsScreen: React.FC = () => {
   const { user } = useAuth();
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Data for creation
+  const [myCourses, setMyCourses] = useState<any[]>([]);
+  const [classrooms, setClassrooms] = useState<any[]>([]);
+  
+  // Create Modal State
+  const [createVisible, setCreateVisible] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newSession, setNewSession] = useState({
+    courseId: '',
+    classroomId: '',
+    date: new Date().toISOString().split('T')[0],
+    startTime: '09:00',
+    endTime: '11:00',
+  });
+
   const [sessionQrs, setSessionQrs] = useState<Record<string, { token: string; expiresAt: string }>>({});
   const [activeSessionOp, setActiveSessionOp] = useState<string | null>(null);
   const [liveQrSessionId, setLiveQrSessionId] = useState<string | null>(null);
@@ -20,17 +37,23 @@ const InstructorSessionsScreen: React.FC = () => {
   const fetchSessions = async () => {
     if (!user) return;
     try {
-      const [sessionData, courseData] = await Promise.all([
+      const [sessionData, courseData, classroomData] = await Promise.all([
         sessionApi.getSessions({ facultyId: user.id }),
         adminApi.getCourses(),
+        adminApi.getClassrooms(),
       ]);
 
-      const mapped = sessionData.map((session: any) => {
-        const course = courseData.find((item: any) => item.id === session.courseId);
+      setMyCourses((courseData || []).filter((c: any) => c.facultyId === user.id));
+      setClassrooms(classroomData || []);
+
+      const mapped = (sessionData || []).map((session: any) => {
+        const course = (courseData || []).find((item: any) => item.id === session.courseId);
+        const room = (classroomData || []).find((item: any) => item.id === session.classroomId);
         return {
           ...session,
           courseName: course?.name || session.courseName || 'Unknown Course',
           courseCode: course?.code || session.courseCode || 'N/A',
+          classroomName: room?.name || session.classroomName || 'Unknown Location',
         };
       });
 
@@ -40,6 +63,35 @@ const InstructorSessionsScreen: React.FC = () => {
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  const handleCreateSession = async () => {
+    if (!newSession.courseId || !newSession.classroomId || !newSession.date) {
+      Alert.alert('Error', 'Please fill all required fields.');
+      return;
+    }
+
+    setCreating(true);
+    try {
+      await sessionApi.createSession({
+        ...newSession,
+        facultyId: user?.id
+      });
+      Alert.alert('Success', 'Session created successfully!');
+      setCreateVisible(false);
+      setNewSession({
+        courseId: '',
+        classroomId: '',
+        date: new Date().toISOString().split('T')[0],
+        startTime: '09:00',
+        endTime: '11:00',
+      });
+      fetchSessions();
+    } catch (error: any) {
+      Alert.alert('Failed', error?.response?.data?.error || 'Unable to create session.');
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -248,6 +300,93 @@ const InstructorSessionsScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Floating Add Button */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => setCreateVisible(true)}
+      >
+        <Text style={styles.fabIcon}>+</Text>
+      </TouchableOpacity>
+
+      {/* Create Session Modal */}
+      <Modal visible={createVisible} animationType="slide" transparent onRequestClose={() => setCreateVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { maxHeight: '90%' }]}>
+            <Text style={styles.modalTitle}>Schedule New Session</Text>
+            
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.formLabel}>Select Course</Text>
+              <View style={styles.pickerWrapper}>
+                {myCourses.map((c) => (
+                  <TouchableOpacity
+                    key={c.id}
+                    style={[styles.pickerItem, newSession.courseId === c.id && styles.pickerItemActive]}
+                    onPress={() => setNewSession({ ...newSession, courseId: c.id })}
+                  >
+                    <Text style={[styles.pickerItemText, newSession.courseId === c.id && styles.pickerItemTextActive]}>{c.code} - {c.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.formLabel}>Select Classroom</Text>
+              <View style={styles.pickerWrapper}>
+                {classrooms.map((room) => (
+                  <TouchableOpacity
+                    key={room.id}
+                    style={[styles.pickerItem, newSession.classroomId === room.id && styles.pickerItemActive]}
+                    onPress={() => setNewSession({ ...newSession, classroomId: room.id })}
+                  >
+                    <Text style={[styles.pickerItemText, newSession.classroomId === room.id && styles.pickerItemTextActive]}>{room.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <InputField
+                label="Date (YYYY-MM-DD)"
+                value={newSession.date}
+                onChangeText={(val) => setNewSession({ ...newSession, date: val })}
+                placeholder="2026-05-10"
+              />
+
+              <View style={styles.row}>
+                <View style={{ flex: 1, marginRight: 10 }}>
+                  <InputField
+                    label="Start Time"
+                    value={newSession.startTime}
+                    onChangeText={(val) => setNewSession({ ...newSession, startTime: val })}
+                    placeholder="HH:mm"
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <InputField
+                    label="End Time"
+                    value={newSession.endTime}
+                    onChangeText={(val) => setNewSession({ ...newSession, endTime: val })}
+                    placeholder="HH:mm"
+                  />
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity 
+                style={[styles.modalActionBtn, styles.btnCancel]} 
+                onPress={() => setCreateVisible(false)}
+              >
+                <Text style={styles.btnCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.modalActionBtn, styles.btnSave, creating && styles.buttonDisabled]} 
+                onPress={handleCreateSession}
+                disabled={creating}
+              >
+                {creating ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnSaveText}>Create Session</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -289,5 +428,22 @@ const styles = StyleSheet.create({
   sectionHeaderLabel: { ...Typography.Typography.label, color: Colors.primary, fontSize: 14, fontWeight: 'bold' },
   rowTop: { flexDirection: 'row', alignItems: 'center' },
   indicator: { width: 10, height: 10, borderRadius: 5, marginRight: 8 },
+  
+  // FAB & Creation Styles
+  fab: { position: 'absolute', right: 20, bottom: 30, width: 60, height: 60, borderRadius: 30, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 5 },
+  fabIcon: { color: '#fff', fontSize: 32, fontWeight: 'bold' },
+  formLabel: { ...Typography.Typography.label, color: Colors.textSecondary, marginBottom: 8, marginTop: 16 },
+  pickerWrapper: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
+  pickerItem: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
+  pickerItemActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  pickerItemText: { ...Typography.Typography.bodySmall, color: Colors.textPrimary },
+  pickerItemTextActive: { color: '#fff', fontWeight: 'bold' },
+  row: { flexDirection: 'row', alignItems: 'center' },
+  modalActions: { flexDirection: 'row', gap: 12, marginTop: 24, borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 16 },
+  modalActionBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+  btnCancel: { backgroundColor: Colors.surfaceLight },
+  btnSave: { backgroundColor: Colors.primary },
+  btnCancelText: { color: Colors.textPrimary, fontWeight: '600' },
+  btnSaveText: { color: '#fff', fontWeight: 'bold' },
 });
 export default InstructorSessionsScreen;

@@ -11,10 +11,10 @@ import { getStorage }     from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCKhmp5S-YHMdwplWLux_BmNtHwLuuizyo",
-  authDomain: "geo-attendance-6e1a4.firebaseapp.com",
-  databaseURL: "https://geo-attendance-6e1a4-default-rtdb.firebaseio.com",
-  projectId: "geo-attendance-6e1a4",
-  storageBucket: "geo-attendance-6e1a4.firebasestorage.app",
+  authDomain: "geo2-626eb.firebaseapp.com",
+  databaseURL: "https://geo2-626eb-default-rtdb.firebaseio.com",
+  projectId: "geo2-626eb",
+  storageBucket: "geo2-626eb.firebasestorage.app",
   messagingSenderId: "706599834939",
   appId: "1:706599834939:web:7a3d941e9fe5a36682531e",
   measurementId: "G-9RQB835Y92"

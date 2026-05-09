@@ -107,7 +107,7 @@ const HomeScreen: React.FC = () => {
             (user?.role ?? 'student').slice(1)
           }
         />
-        <InfoCard icon="🔐" label="UID" value={user?.uid.slice(0, 12) + '…'} />
+        <InfoCard icon="🔐" label="UID" value={(user?.id ?? '').slice(0, 12) + '…'} />
         <InfoCard icon="✅" label="Status" value="Active" highlight />
       </View>
 

@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import Colors from '../theme/colors';
 import Typography from '../theme/typography';
-import { aiApi } from '../services/api';
+import { chatbotApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 type ChatMessage = { id: string; role: 'user' | 'assistant'; content: string };
@@ -77,11 +77,8 @@ export function MiniChatWidget() {
     setSending(true);
 
     try {
-      const res = await aiApi.chat({
-        message: text,
-        messages: next.map((m) => ({ role: m.role, content: m.content })),
-      });
-      const reply = String(res?.message || '').trim() || 'No response.';
+      const res = await chatbotApi.ask(text);
+      const reply = String(res?.response || '').trim() || 'No response.';
       setMessages((prev) => [...prev, { id: `${Date.now()}-a`, role: 'assistant', content: reply }]);
     } catch (e: any) {
       const serverMessage = e?.response?.data?.message || e?.response?.data?.error || e?.message;
@@ -118,8 +115,8 @@ export function MiniChatWidget() {
         >
           <View style={styles.header}>
             <View>
-              <Text style={styles.title}>AI Assistant</Text>
-              <Text style={styles.subtitle}>Ask anything about GeoAttend</Text>
+              <Text style={styles.title}>Absattar AI</Text>
+              <Text style={styles.subtitle}>Ask about policies & help</Text>
             </View>
             <TouchableOpacity onPress={toggleChat} style={styles.closeBtn}>
               <Text style={styles.closeText}>✕</Text>
@@ -132,7 +129,7 @@ export function MiniChatWidget() {
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={
               <View style={styles.emptyBox}>
-                <Text style={styles.emptyText}>How can I help you today, {user?.name?.split(' ')?.[0]}?</Text>
+                <Text style={styles.emptyText}>Hello! I am Absattar, your AI assistant. How can I help you today? You can ask me about attendance policies, university rules, or how to use this app.</Text>
               </View>
             }
             renderItem={({ item }) => (
@@ -175,7 +172,7 @@ export function MiniChatWidget() {
 const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
-    right: 16,
+    left: 16,
     bottom: 86,
     width: 54,
     height: 54,
@@ -197,7 +194,7 @@ const styles = StyleSheet.create({
   container: {
     position: 'absolute',
     bottom: 150,
-    right: 16,
+    left: 16,
     width: width * 0.85,
     maxWidth: 350,
     height: 450,

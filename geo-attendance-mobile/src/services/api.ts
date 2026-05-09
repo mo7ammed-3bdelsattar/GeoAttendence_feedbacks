@@ -8,7 +8,31 @@ import {
 } from 'firebase/auth';
 import { auth as clientAuth } from '../config/firebase';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.194:5000/api';
+const getBaseUrl = () => {
+  const platform = Platform.OS;
+  const envUrl = process.env.EXPO_PUBLIC_API_URL;
+  
+  console.log(`[API] Platform detected: ${platform}`);
+  
+  // 1. For Web testing on PC
+  if (platform === 'web') {
+    return 'http://localhost:5000/api';
+  }
+  
+  // 2. For Android Emulator
+  // @ts-ignore
+  const isEmulator = !Platform.isTesting && (platform === 'android' && !process.env.JEST_WORKER_ID);
+  // Note: Detecting emulator accurately without 'expo-device' is tricky, 
+  // but usually if we are native and not web, we want the network IP.
+  
+  if (envUrl && !envUrl.includes('localhost')) return envUrl;
+  
+  // Fallback to your machine's network IP
+  return 'http://192.168.1.75:5000/api';
+};
+
+const API_URL = getBaseUrl();
+console.log(`[API] Using base URL: ${API_URL}`);
 
 const api = axios.create({
   baseURL: API_URL,
@@ -57,6 +81,7 @@ export interface User {
   name: string;
   email: string;
   role: 'student' | 'faculty' | 'admin';
+  photoURL?: string;
   createdAt?: string;
 }
 
@@ -86,13 +111,18 @@ export const authApi = {
           id: userData.id,
           name: userData.name,
           email: userData.email,
-          role: userData.role
+          role: userData.role,
+          photoURL: userData.photoURL
         },
         token: userData.token || idToken
       };
     } catch (error: any) {
       // 2. Fallback to Backend Authentication (for admin/mock accounts)
       console.log('[AUTH] Firebase failed, trying backend fallback...', error.message);
+      if (error.message === 'Network Error') {
+        console.warn('[NETWORK ERROR] The app cannot reach the server.');
+        console.warn('[WSL2 TIP] If you are on WSL2, try running "npx expo start --tunnel" and ensure your phone is on the same Wi-Fi.');
+      }
       try {
         const response = await api.post('/auth/login', { email, password });
         const userData = response.data;
@@ -242,6 +272,11 @@ export const sessionApi = {
 
   getSessionsForFaculty: async (facultyId: string) => {
     const response = await api.get(`/sessions/faculty/${facultyId}`);
+    return response.data;
+  },
+
+  createSession: async (sessionData: any) => {
+    const response = await api.post('/sessions', sessionData);
     return response.data;
   },
 
@@ -397,10 +432,65 @@ export const feedbackApi = {
 };
 
 export const userApi = {
+  getMe: async () => {
+    const response = await api.get('/users/me');
+    return response.data;
+  },
+
+  updateMe: async (payload: { name?: string; photoURL?: string; password?: string }) => {
+    const response = await api.patch('/users/me', payload);
+    return response.data;
+  },
+
+  uploadAvatar: async (fileUri: string) => {
+    const formData = new FormData();
+    const uriParts = fileUri.split('.');
+    const fileType = uriParts[uriParts.length - 1];
+
+    // @ts-ignore
+    formData.append('avatar', {
+      uri: fileUri,
+      name: `photo.${fileType}`,
+      type: `image/${fileType}`,
+    });
+
+    const response = await api.post('/users/upload-avatar', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
   updatePushToken: async (userId: string, pushToken: string) => {
     const response = await api.patch(`/users/${userId}/push-token`, { pushToken });
     return response.data;
   },
+};
+
+export const notificationApi = {
+  getMyNotifications: async () => {
+    const response = await api.get('/notifications/my');
+    return response.data;
+  }
+};
+
+export const bookApi = {
+  getBooks: async () => {
+    const response = await api.get('/books');
+    return response.data;
+  },
+  createBook: async (payload: any) => {
+    const response = await api.post('/admin/books', payload);
+    return response.data;
+  },
+  updateBook: async (id: string, payload: any) => {
+    const response = await api.patch(`/admin/books/${id}`, payload);
+    return response.data;
+  },
+  deleteBook: async (id: string) => {
+    await api.delete(`/admin/books/${id}`);
+  }
 };
 
 export const studentApi = {
@@ -426,10 +516,32 @@ export const studentApi = {
   }
 };
 
-export const aiApi = {
-  chat: async (payload: { message: string; messages?: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> }) => {
-    const response = await api.post('/ai/chat', payload);
-    return response.data;
+export const chatbotApi = {
+  ask: async (query: string) => {
+    const response = await api.post('/chatbot/ask', { query });
+    return response.data.data || response.data;
+  }
+};
+
+export const chatApi = {
+  async getMyChats(userId?: string, role?: string): Promise<any[]> {
+    const response = await api.get('/chats', { params: { userId, role } });
+    return response.data.data || response.data;
+  },
+
+  async getMessages(chatId: string): Promise<any[]> {
+    const response = await api.get(`/chats/${chatId}/messages`);
+    return response.data.data || response.data;
+  },
+
+  async sendMessage(payload: {
+    studentId: string;
+    senderId: string;
+    text: string;
+    isAdmin: boolean;
+  }): Promise<any> {
+    const response = await api.post('/chats/messages', payload);
+    return response.data.data || response.data;
   }
 };
 

@@ -6,7 +6,7 @@ import { chatbotApi } from '../../services/api.ts';
 export function StudentChatbotPage() {
   const [query, setQuery] = useState('');
   const [messages, setMessages] = useState<{ sender: 'user' | 'bot', text: string }[]>([
-    { sender: 'bot', text: 'Hello! I am Absattar your Assistant. Ask me anything about college policies.' }
+    { sender: 'bot', text: 'Hello! I am Absattar, your AI assistant. How can I help you today? You can ask me about attendance policies, university rules, or how to use this app.' }
   ]);
   const [loading, setLoading] = useState(false);
 
@@ -29,7 +29,7 @@ export function StudentChatbotPage() {
   };
 
   return (
-    <AppShell title="Policy Chatbot">
+    <AppShell title="Assistant Absattar">
       <div className="max-w-4xl mx-auto flex flex-col h-[calc(100vh-12rem)]">
         <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 rounded-t-2xl border border-gray-200">
           {messages.map((msg, i) => (

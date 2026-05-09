@@ -30,6 +30,7 @@ interface Session {
   endTime: string;
   title?: string;
   status: 'active' | 'ended';
+  isActive?: boolean;
   // Joined fields for display
   courseName?: string;
   courseCode?: string;
@@ -71,15 +72,15 @@ export function AdminSessionsPage() {
 
       // Map sessions to include names for display
       const mapped = s.map((sess: any) => {
-        const crs = c?.find(x => x.id === sess.courseId);
-        const fac = u?.find(x => x.id === sess.facultyId);
-        const room = r?.find(x => x.id === sess.classroomId);
+        const crs = sess.course || c?.find((x: Course) => x.id === sess.courseId);
+        const fac = sess.faculty || u?.find((x: User) => x.id === sess.facultyId);
+        const room = sess.classroom || r?.find((x: Classroom) => x.id === sess.classroomId);
         return {
           ...sess,
-          courseName: crs?.name || 'Unknown Course',
-          courseCode: crs?.code || '???',
-          facultyName: fac?.name || 'Unknown Instructor',
-          classroomName: room?.name || 'Unknown Room'
+          courseName: crs?.name || sess.courseName || 'Unknown Course',
+          courseCode: crs?.code || sess.courseCode || '???',
+          facultyName: fac?.name || sess.facultyName || 'Unknown Instructor',
+          classroomName: room?.name || sess.classroomName || 'Unknown Room'
         };
       });
 
@@ -164,7 +165,7 @@ export function AdminSessionsPage() {
     setStartTime(s.startTime);
     setEndTime(s.endTime);
     setTitle(s.title || '');
-    setIsActive(s.isActive || s.status === 'active');
+    setIsActive(s.isActive || s.status?.toLowerCase() === 'active');
     setAddOpen(true);
   };
 
@@ -219,8 +220,7 @@ export function AdminSessionsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
            {[
              { label: 'Total Scheduled', count: sessions.length, icon: Calendar, color: 'text-blue-600', bg: 'bg-blue-50' },
-             { label: 'Active Today', count: sessions.filter(s => s.date === new Date().toISOString().split('T')[0]).length, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
-             { label: 'Rooms Occupied', count: new Set(sessions.map(s => s.classroomId)).size, icon: MapPin, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+             { label: 'Active Today', count: sessions.filter(s => s.isActive || s.status?.toLowerCase() === 'active').length, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },             { label: 'Rooms Occupied', count: new Set(sessions.map(s => s.classroomId)).size, icon: MapPin, color: 'text-emerald-600', bg: 'bg-emerald-50' },
            ].map((stat, i) => (
              <div key={i} className="bg-white p-4 rounded-2xl border border-gray-100 flex items-center gap-4 transition-all hover:scale-[1.02]">
                 <div className={`h-12 w-12 ${stat.bg} ${stat.color} rounded-xl flex items-center justify-center`}>
@@ -275,16 +275,16 @@ export function AdminSessionsPage() {
                         <td className="px-6 py-4">
                            <div className="flex items-center gap-2">
                               <div className="h-8 w-8 bg-gray-900 text-white rounded-full flex items-center justify-center text-[10px] font-bold">
-                                 {s.facultyName?.split(' ').map(n => n[0]).join('')}
+                                 {s.facultyName ? s.facultyName.split(' ').filter(Boolean).map(n => n[0]).join('') : '??'}
                               </div>
-                              <p className="text-sm font-medium text-gray-700">{s.facultyName}</p>
+                              <p className="text-sm font-medium text-gray-700">{s.facultyName || 'Unknown Instructor'}</p>
                            </div>
                         </td>
                         <td className="px-6 py-4">
                            <div className="space-y-1">
                               <div className="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
                                  <Calendar className="h-3 w-3 text-primary" />
-                                 {new Date(s.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                 {s.date ? new Date(s.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'No Date'}
                               </div>
                               <div className="flex items-center gap-1.5 text-xs text-gray-400 font-medium">
                                  <Clock className="h-3 w-3" />
@@ -293,8 +293,8 @@ export function AdminSessionsPage() {
                            </div>
                         </td>
                         <td className="px-6 py-4">
-                           <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold ${s.isActive || s.status === 'active' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-gray-50 text-gray-600 border border-gray-100'}`}>
-                              {s.isActive || s.status === 'active' ? 'Active' : 'Upcoming'}
+                           <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold ${s.isActive || s.status?.toLowerCase() === 'active' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-gray-50 text-gray-600 border border-gray-100'}`}>
+                              {s.isActive || s.status?.toLowerCase() === 'active' ? 'Active' : 'Upcoming'}
                            </span>
                         </td>
                         <td className="px-6 py-4">

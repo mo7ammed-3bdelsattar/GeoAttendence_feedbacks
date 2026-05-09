@@ -150,9 +150,9 @@ export function StudentHomePage() {
       setEnrollments(previousEnrollments);
       setSessions(previousSessions);
       setFeedback(previousFeedback);
-      toast.error(error?.response?.data?.error || 'Failed to unenroll from course.');
+      toast.error(error?.response?.data?.error || 'Failed to enroll in course.');
     } finally {
-      setUnenrollingCourseId(null);
+      setEnrolling(false);
     }
   };
 

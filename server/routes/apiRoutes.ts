@@ -10,18 +10,28 @@ import * as sessionController from '../controllers/sessionController';
 import * as feedbackController from '../controllers/feedbackController';
 import * as attendanceController from '../controllers/attendanceController';
 import * as notificationController from '../controllers/notificationController';
-import * as aiController from '../controllers/aiController';
 import * as chatbotController from '../controllers/chatbotController';
 import * as chatController from '../controllers/chatController';
 import * as groupController from '../controllers/groupController';
 import * as reportController from '../controllers/reportController';
+import * as bookController from '../controllers/bookController';
+import * as uploadController from '../controllers/uploadController';
 import { getMySchedule, getStudentCourses, getStudentDashboard, studentScheduleController } from '../controllers/studentController';
 import { requireStudentAuth } from '../middleware/authGuard';
 import { requireRole } from '../middleware/requireRole';
 import { db } from '../config/firebase-admin';
+import multer from 'multer';
 
 const router = Router();
 const USE_MOCK_AUTH = process.env.USE_MOCK_AUTH === 'true';
+
+// Multer config for file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+});
 
 // Health check endpoint
 router.get('/health', (req: Request, res: Response) => {
@@ -51,7 +61,12 @@ router.post('/auth/login', (req, res) => {
 });
 router.post('/auth/reset-password', authController.resetPassword);
 
-router.post('/ai/chat', requireRole(['admin', 'faculty', 'student']), aiController.chat);
+// User routes
+router.get('/users/me', requireRole(['admin', 'faculty', 'student']), userController.getMe);
+router.patch('/users/me', requireRole(['admin', 'faculty', 'student']), userController.updateMe);
+router.post('/users/upload-avatar', requireRole(['admin', 'faculty', 'student']), upload.single('avatar'), uploadController.uploadImage);
+
+router.post('/ai/chat', requireRole(['admin', 'faculty', 'student']), chatbotController.askChatbot);
 
 // User/Admin routes
 router.get('/admin/users', requireRole('admin'), userController.getUsers);
@@ -73,6 +88,12 @@ router.get('/admin/courses', requireRole(['admin', 'faculty', 'student']), cours
 router.post('/admin/courses', requireRole('admin'), courseController.createCourse);
 router.patch('/admin/courses/:id', requireRole('admin'), courseController.updateCourse);
 router.delete('/admin/courses/:id', requireRole('admin'), courseController.deleteCourse);
+
+// Book routes
+router.get('/books', bookController.getBooks);
+router.post('/admin/books', requireRole('admin'), bookController.createBook);
+router.patch('/admin/books/:id', requireRole('admin'), bookController.updateBook);
+router.delete('/admin/books/:id', requireRole('admin'), bookController.deleteBook);
 
 // Classroom routes
 router.get('/admin/classrooms', requireRole(['admin', 'faculty']), classroomController.getClassrooms);
@@ -99,6 +120,12 @@ router.post('/sessions/:id/start', sessionController.startSessionById);
 router.post('/sessions/:id/end', sessionController.endSessionById);
 router.get('/sessions/:sessionId/qr', sessionController.getSessionQr);
 router.get('/sessions/:sessionId/summary', sessionController.getSessionSummary);
+
+// New Attendance/Check-in routes for Mobile
+router.post('/sessions/checkin', requireRole(['student']), sessionController.checkInWithQr);
+router.post('/sessions/checkout', requireRole(['student']), sessionController.checkOutWithQr);
+router.post('/sessions/checkin-location', requireRole(['student']), sessionController.checkInWithLocation);
+router.post('/sessions/checkout-location', requireRole(['student']), sessionController.checkOutWithLocation);
 
 // Attendance routes
 router.post('/attendance', attendanceController.markAttendance);

@@ -7,7 +7,7 @@ function toSessionDateTime(date: string, hhmm: string): Date {
   return new Date(`${date}T${hhmm}:00`);
 }
 
-function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+export function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const toRad = (deg: number) => (deg * Math.PI) / 180;
   const R = 6371000;
   const dLat = toRad(lat2 - lat1);
@@ -21,6 +21,7 @@ function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number)
 
 export const markAttendance = async (req: Request, res: Response) => {
   try {
+    const now = new Date();
     const { studentId, sessionId, latitude, longitude } = req.body as {
       studentId?: string;
       sessionId?: string;
@@ -58,7 +59,6 @@ export const markAttendance = async (req: Request, res: Response) => {
       return res.status(409).json({ error: 'Already attended' });
     }
 
-    const now = new Date();
     const startsAt = toSessionDateTime(sessionData.date, sessionData.startTime);
     const endsAt = toSessionDateTime(sessionData.date, sessionData.endTime);
     if (now < startsAt || now > endsAt) {
@@ -103,8 +103,25 @@ export const markAttendance = async (req: Request, res: Response) => {
       timestamp: now.toISOString()
     };
 
-    const ref = await db.collection('attendance').add(attendance);
-    return res.status(201).json({ id: ref.id, ...attendance });
+    // Use a batch to update both root and session-specific records
+    const batch = db.batch();
+    
+    // 1. Add to root attendance collection
+    const rootRef = db.collection('attendance').doc();
+    batch.set(rootRef, attendance);
+
+    // 2. Add/Update session-specific attendanceRecords
+    const sessionRecordRef = db.collection('sessions').doc(sessionId).collection('attendanceRecords').doc(studentId);
+    batch.set(sessionRecordRef, {
+        studentId,
+        studentName: 'Unknown', // Will be enriched later if needed
+        checkInAt: attendance.timestamp,
+        gpsCoords: { lat: latitude, lng: longitude },
+        status: 'PRESENT'
+    }, { merge: true });
+
+    await batch.commit();
+    return res.status(201).json({ id: rootRef.id, ...attendance });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }
@@ -165,8 +182,12 @@ export const getAttendanceByFaculty = async (req: Request, res: Response) => {
           db.collection('attendance').where('sessionId', '==', session.id).get(),
           db.collection('enrollments').where('courseId', '==', session.courseId).get()
         ]);
-        const presentCount = presentSnap.size;
+        
+        // Use a Set to ensure we only count unique students as present
+        const uniquePresentStudents = new Set(presentSnap.docs.map(doc => doc.data().studentId));
+        const presentCount = uniquePresentStudents.size;
         const enrolledCount = enrollmentSnap.size;
+
         return {
           sessionId: session.id,
           presentCount,

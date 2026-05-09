@@ -18,7 +18,7 @@ export function FloatingAiButton() {
 const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
-    right: 16,
+    left: 16,
     bottom: 86,
     width: 54,
     height: 54,

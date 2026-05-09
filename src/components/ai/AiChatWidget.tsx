@@ -36,8 +36,8 @@ export function AiChatWidget() {
                 <Bot className="h-4 w-4" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-slate-900">AI Assistant</p>
-                <p className="text-[11px] text-slate-500">QR • Location • Help</p>
+                <p className="text-sm font-semibold text-slate-900">Absattar AI</p>
+                <p className="text-[11px] text-slate-500">Policies • Help • Attendance</p>
               </div>
             </div>
             <button
@@ -53,7 +53,7 @@ export function AiChatWidget() {
           <div className="h-[320px] overflow-y-auto p-3 space-y-2 bg-slate-50">
             {messages.length === 0 ? (
               <div className="rounded-xl border border-dashed border-slate-200 bg-white p-3 text-xs text-slate-600">
-                اسأل: “ليه الـ QR مش بيظهر؟” أو “أعمل check-in بالـ location ازاي؟”
+                Hello! I am Absattar, your AI assistant. How can I help you today? You can ask me about attendance policies, university rules, or how to use this app.
               </div>
             ) : (
               messages.map((m, idx) => (

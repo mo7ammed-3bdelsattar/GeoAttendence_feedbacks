@@ -11,42 +11,63 @@ export const getInstructorReport = async (req: Request, res: Response) => {
     const courses = coursesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
 
     const courseReports = await Promise.all(courses.map(async (course) => {
-      // 2. Get all groups for this course
+      // 2. Get all students enrolled in this course (Primary Source)
+      const courseEnrollmentsSnap = await db.collection('enrollments').where('courseId', '==', course.id).get();
+      const courseStudentIds = Array.from(new Set(courseEnrollmentsSnap.docs.map(doc => doc.data().studentId)));
+
+      // 3. Get all groups for this course
       const groupsSnap = await db.collection('groups').where('courseId', '==', course.id).get();
       const groups = groupsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
 
+      // 4. Get all sessions for this course
+      const courseSessionsSnap = await db.collection('sessions').where('courseId', '==', course.id).get();
+      const courseSessions = courseSessionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
+
       const groupData = await Promise.all(groups.map(async (group) => {
-        // 3. Get all students enrolled in this group
-        const enrollmentsSnap = await db.collection('enrollments').where('groupId', '==', group.id).get();
-        const studentIds = enrollmentsSnap.docs.map(doc => doc.data().studentId);
+        // Find students explicitly assigned to this group
+        const groupEnrollments = courseEnrollmentsSnap.docs.filter(d => d.data().groupId === group.id);
+        let groupStudentIds = groupEnrollments.map(d => d.data().studentId);
 
-        // 4. Get all sessions for this group
-        const sessionsSnap = await db.collection('sessions').where('groupId', '==', group.id).get();
-        const sessions = sessionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
-        const sessionCount = sessions.length;
+        // FALLBACK: If no students are assigned to groups, treat all course students as part of the group for reporting
+        if (groupStudentIds.length === 0 && groups.length === 1) {
+            groupStudentIds = courseStudentIds;
+        }
 
-        // 5. Get feedback for this group to calculate averageRating
+        // Find sessions explicitly assigned to this group
+        let groupSessions = courseSessions.filter(s => s.groupId === group.id);
+        
+        // FALLBACK: If no sessions are assigned to groups, treat all course sessions as part of the group
+        if (groupSessions.length === 0 && groups.length === 1) {
+            groupSessions = courseSessions;
+        }
+
+        const sessionCount = groupSessions.length;
+
+        // Get feedback for this group
         const feedbackSnap = await db.collection('feedback').where('groupId', '==', group.id).get();
         const feedbacks = feedbackSnap.docs.map(doc => doc.data());
         const averageRating = feedbacks.length > 0 
           ? Number((feedbacks.reduce((acc, f) => acc + (f.rating || 0), 0) / feedbacks.length).toFixed(1))
           : 0;
 
-        const students = await Promise.all(studentIds.map(async (studentId) => {
+        const students = await Promise.all(groupStudentIds.map(async (studentId) => {
           const userSnap = await db.collection('users').doc(studentId).get();
           const userData = userSnap.data();
 
-          // Count attendance for this student across all group sessions
           let presentCount = 0;
-          if (sessions.length > 0) {
-            const attendanceSnap = await db.collection('attendance')
-              .where('studentId', '==', studentId)
-              .where('sessionId', 'in', sessions.map(s => s.id).slice(0, 30))
-              .get();
-            presentCount = attendanceSnap.size;
+          if (groupSessions.length > 0) {
+            const sessionIds = groupSessions.map(s => s.id);
+            for (let i = 0; i < sessionIds.length; i += 30) {
+                const chunk = sessionIds.slice(i, i + 30);
+                const attendanceSnap = await db.collection('attendance')
+                  .where('studentId', '==', studentId)
+                  .where('sessionId', 'in', chunk)
+                  .get();
+                presentCount += attendanceSnap.size;
+            }
           }
 
-          const absenceCount = sessionCount - presentCount;
+          const absenceCount = Math.max(0, sessionCount - presentCount);
           const attendancePercentage = sessionCount > 0 ? (presentCount / sessionCount) * 100 : 0;
 
           return {
@@ -65,7 +86,7 @@ export const getInstructorReport = async (req: Request, res: Response) => {
         return {
           groupId: group.id,
           groupName: group.name,
-          studentCount: studentIds.length,
+          studentCount: groupStudentIds.length,
           sessionCount,
           averageRating,
           attendanceRate: groupAttendanceRate,
@@ -79,23 +100,23 @@ export const getInstructorReport = async (req: Request, res: Response) => {
         courseCode: course.code,
         groups: groupData
       };
-      }));
+    }));
 
-      // Flatten groups for frontend
-      const allGroups = courseReports.flatMap(c => c.groups.map(g => ({
+    // Flatten groups for frontend
+    const allGroups = courseReports.flatMap(c => c.groups.map(g => ({
       ...g,
       courseName: c.courseName,
       courseCode: c.courseCode
-      })));
+    })));
 
-      res.json({
+    res.json({
       success: true,
       data: {
         facultyId,
         groups: allGroups,
         courses: courseReports
       }
-      });
+    });
   } catch (error: any) {
     console.error('[Instructor Report Error]', error);
     res.status(500).json({ error: error.message });
@@ -109,36 +130,60 @@ export const getAdminAttendanceReport = async (req: Request, res: Response) => {
     const courses = coursesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
 
     const courseReports = await Promise.all(courses.map(async (course) => {
-      // 2. Get all groups for this course
+      // 2. Get all students enrolled in this course (Primary Source)
+      const courseEnrollmentsSnap = await db.collection('enrollments').where('courseId', '==', course.id).get();
+      const courseStudentIds = Array.from(new Set(courseEnrollmentsSnap.docs.map(doc => doc.data().studentId)));
+
+      // 3. Get all groups for this course
       const groupsSnap = await db.collection('groups').where('courseId', '==', course.id).get();
       const groups = groupsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
 
+      // 4. Get all sessions for this course
+      const courseSessionsSnap = await db.collection('sessions').where('courseId', '==', course.id).get();
+      const courseSessions = courseSessionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
+
       const groupData = await Promise.all(groups.map(async (group) => {
-        const enrollmentsSnap = await db.collection('enrollments').where('groupId', '==', group.id).get();
-        const studentIds = enrollmentsSnap.docs.map(doc => doc.data().studentId);
+        // Find students explicitly assigned to this group
+        const groupEnrollments = courseEnrollmentsSnap.docs.filter(d => d.data().groupId === group.id);
+        let groupStudentIds = groupEnrollments.map(d => d.data().studentId);
 
-        const sessionsSnap = await db.collection('sessions').where('groupId', '==', group.id).get();
-        const sessions = sessionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
-        const sessionCount = sessions.length;
+        // FALLBACK: If no students assigned to groups, treat all course students as group students
+        if (groupStudentIds.length === 0 && groups.length === 1) {
+            groupStudentIds = courseStudentIds;
+        }
 
-        const students = await Promise.all(studentIds.map(async (studentId) => {
+        // Find sessions explicitly assigned to this group
+        let groupSessions = courseSessions.filter(s => s.groupId === group.id);
+        
+        // FALLBACK: If no sessions assigned to groups, treat all course sessions as part of the group
+        if (groupSessions.length === 0 && groups.length === 1) {
+            groupSessions = courseSessions;
+        }
+
+        const sessionCount = groupSessions.length;
+
+        const students = await Promise.all(groupStudentIds.map(async (studentId) => {
           const userSnap = await db.collection('users').doc(studentId).get();
           const userData = userSnap.data();
 
           let presentCount = 0;
-          if (sessions.length > 0) {
-            const attendanceSnap = await db.collection('attendance')
-              .where('studentId', '==', studentId)
-              .where('sessionId', 'in', sessions.map(s => s.id).slice(0, 30))
-              .get();
-            presentCount = attendanceSnap.size;
+          if (groupSessions.length > 0) {
+            const sessionIds = groupSessions.map(s => s.id);
+            for (let i = 0; i < sessionIds.length; i += 30) {
+                const chunk = sessionIds.slice(i, i + 30);
+                const attendanceSnap = await db.collection('attendance')
+                  .where('studentId', '==', studentId)
+                  .where('sessionId', 'in', chunk)
+                  .get();
+                presentCount += attendanceSnap.size;
+            }
           }
 
           return {
             studentId,
             studentName: userData?.name || 'Unknown Student',
             presentCount,
-            absenceCount: sessionCount - presentCount,
+            absenceCount: Math.max(0, sessionCount - presentCount),
             attendancePercentage: sessionCount > 0 ? Number(((presentCount / sessionCount) * 100).toFixed(2)) : 0
           };
         }));
@@ -146,7 +191,7 @@ export const getAdminAttendanceReport = async (req: Request, res: Response) => {
         return {
           groupId: group.id,
           groupName: group.name,
-          studentCount: studentIds.length,
+          studentCount: groupStudentIds.length,
           sessionCount,
           students
         };

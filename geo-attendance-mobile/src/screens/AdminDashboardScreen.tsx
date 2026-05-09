@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, ScrollView, RefreshControl, TouchableOpacity, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Colors from '../theme/colors';
 import Typography from '../theme/typography';
@@ -7,8 +7,8 @@ import { adminApi, sessionApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 const AdminDashboardScreen: React.FC = () => {
-  const { logout } = useAuth();
-  const navigation = useNavigation<any>(); // use any to bypass strict type checking for the hidden tabs
+  const { user, logout } = useAuth();
+  const navigation = useNavigation<any>(); 
   
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -16,18 +16,17 @@ const AdminDashboardScreen: React.FC = () => {
 
   const fetchStats = async () => {
     try {
-      console.log('[AdminDashboard] Fetching stats from:', adminApi);
       const [users, courses, classrooms, sessions] = await Promise.all([
-        adminApi.getUsers().catch(e => { console.error('getUsers failed:', e.message); throw e; }),
-        adminApi.getCourses().catch(e => { console.error('getCourses failed:', e.message); throw e; }),
-        adminApi.getClassrooms().catch(e => { console.error('getClassrooms failed:', e.message); throw e; }),
-        sessionApi.getSessions().catch(e => { console.error('getSessions failed:', e.message); throw e; })
+        adminApi.getUsers().catch(() => []),
+        adminApi.getCourses().catch(() => []),
+        adminApi.getClassrooms().catch(() => []),
+        sessionApi.getSessions().catch(() => [])
       ]);
       setStats({
-        users: users.length,
-        courses: courses.length,
-        classrooms: classrooms.length,
-        sessions: sessions.length,
+        users: (users || []).length,
+        courses: (courses || []).length,
+        classrooms: (classrooms || []).length,
+        sessions: (sessions || []).length,
       });
     } catch (error: any) {
       console.error('Failed to fetch admin stats:', error.message || error);
@@ -49,13 +48,27 @@ const AdminDashboardScreen: React.FC = () => {
     );
   }
 
+  const initials = (user?.name || '').split(' ').filter(Boolean).slice(0, 1).map(n => n[0]).join('').toUpperCase() || 'A';
+
   return (
     <ScrollView 
       style={styles.container}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchStats(); }} tintColor={Colors.primary} />}
     >
       <View style={styles.headerRow}>
-        <Text style={styles.title}>Admin Dashboard</Text>
+        <TouchableOpacity style={styles.headerProfile} onPress={() => navigation.navigate('Profile')}>
+          {user?.photoURL ? (
+            <Image source={{ uri: user.photoURL }} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Text style={styles.avatarText}>{initials}</Text>
+            </View>
+          )}
+          <View>
+            <Text style={styles.title}>Admin Dashboard</Text>
+            <Text style={styles.subtitle}>System Overview</Text>
+          </View>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.logoutButton} onPress={logout}>
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
@@ -87,7 +100,6 @@ const AdminDashboardScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* Quick Links to Hidden Sections */}
       <Text style={styles.sectionTitle}>More Administration</Text>
       
       <View style={styles.actionsContainer}>
@@ -127,6 +139,30 @@ const styles = StyleSheet.create({
   centered: { flex: 1, backgroundColor: Colors.background, justifyContent: 'center', alignItems: 'center' },
   
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, marginTop: 40 },
+  headerProfile: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  subtitle: { ...Typography.Typography.body, color: Colors.textSecondary },
+  avatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 2,
+    borderColor: Colors.primary,
+  },
+  avatarPlaceholder: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: Colors.surfaceLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  avatarText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Colors.primary,
+  },
   title: { ...Typography.Typography.h1 },
   logoutButton: { backgroundColor: Colors.surfaceLight, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: Colors.border },
   logoutText: { ...Typography.Typography.label, color: Colors.accent },

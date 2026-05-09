@@ -19,6 +19,10 @@ export interface Session {
   attended?: boolean;
   groupId?: string;
   isActive?: boolean;
+  // Enriched objects
+  course?: { id: string, name: string, code: string };
+  faculty?: { id: string, name: string, email: string };
+  classroom?: { id: string, name: string };
 }
 
 export interface CheckIn {

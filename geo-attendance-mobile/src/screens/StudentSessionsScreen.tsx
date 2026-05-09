@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl, TouchableOpacity, Alert, Modal } from 'react-native';
 import * as Location from 'expo-location';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import Colors from '../theme/colors';
 import Typography from '../theme/typography';
 import { useAuth } from '../context/AuthContext';
@@ -12,7 +13,7 @@ const StudentSessionsScreen: React.FC = () => {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [markingId, setMarkingId] = useState<string | null>(null);
+  const [processingId, setProcessingId] = useState<string | null>(null);
   const [scannerVisible, setScannerVisible] = useState(false);
   const [scannerMode, setScannerMode] = useState<'checkin' | 'checkout' | null>(null);
   const [scannerSessionId, setScannerSessionId] = useState<string | null>(null);
@@ -39,22 +40,31 @@ const StudentSessionsScreen: React.FC = () => {
   };
 
   const fetchSessions = async () => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
     try {
-      const data = await sessionApi.getSessions();
+      console.log(`[Sessions] Fetching sessions for student: ${user.id}`);
+      const data = await sessionApi.getStudentSessions(user.id);
+      console.log(`[Sessions] Received ${Array.isArray(data) ? data.length : 0} sessions from API`);
+      
       const now = new Date();
       const todayStr = now.toLocaleDateString('en-CA'); // YYYY-MM-DD local
-      
+      console.log(`[Sessions] Filtering for date >= ${todayStr}`);
+
       const visibleSessions = (data as Session[])
         .filter((session) => {
           if (!session.date) return false;
-          // Show if it's today (any time) or in the future
-          return session.date >= todayStr;
+          // Temporarily show all sessions for debugging
+          return true;
         })
         .sort((a, b) => {
           const left = new Date(`${a.date || ''}T${a.startTime || '00:00'}:00`).getTime();
           const right = new Date(`${b.date || ''}T${b.startTime || '00:00'}:00`).getTime();
-          return left - right;
+          // Sort by date descending so today/future are at top
+          return right - left;
         });
       setSessions(visibleSessions);
     } catch (error) {
@@ -99,9 +109,39 @@ const StudentSessionsScreen: React.FC = () => {
     }
   };
 
+  const handleLocationCheckout = async (sessionId: string) => {
+    setProcessingId(sessionId);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Location access is required for check-out.');
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High
+      });
+
+      await attendanceApi.locationCheckout({
+        sessionId,
+        gpsCoords: {
+          lat: location.coords.latitude,
+          lng: location.coords.longitude
+        }
+      });
+
+      Alert.alert('Success', 'You have checked out successfully!');
+      fetchSessions();
+    } catch (error: any) {
+      Alert.alert('Check-out Failed', error.message || 'Unable to verify your location.');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
   const handleAutoCheckInNearby = async () => {
     if (!user) return;
-    const activeSessions = sessions.filter((session) => Boolean(session.isActive) && !session.attended);
+    const activeSessions = sessions.filter((session) => Boolean(session.isActive) && !(session.attended || checkedInSessions[session.id]));
     if (activeSessions.length === 0) {
       Alert.alert('No Active Sessions', 'There are no active lectures available for check-in right now.');
       return;
@@ -220,9 +260,10 @@ const StudentSessionsScreen: React.FC = () => {
 
         setCheckedInSessions((prev) => ({ ...prev, [sessionId]: true }));
         setSessions((prev) => prev.map((session) =>
-          session.id === sessionId ? { ...session, isActive: true } : session
+          session.id === sessionId ? { ...session, attended: true } : session
         ));
         Alert.alert('Checked in', 'You have checked in successfully.');
+        fetchSessions();
       } catch (error: any) {
         Alert.alert('Check-in failed', error.message || error.response?.data?.message || 'Unable to check in using the scanned QR.');
       }
@@ -243,7 +284,11 @@ const StudentSessionsScreen: React.FC = () => {
           },
         });
         setCheckedInSessions((prev) => ({ ...prev, [sessionId]: false }));
+        setSessions((prev) => prev.map((session) =>
+          session.id === sessionId ? { ...session, attended: false } : session
+        ));
         Alert.alert('Checked out', 'You have successfully checked out.');
+        fetchSessions();
       } catch (error: any) {
         Alert.alert('Check-out failed', error.message || error.response?.data?.message || 'Unable to check out using the scanned QR.');
       }
@@ -253,7 +298,10 @@ const StudentSessionsScreen: React.FC = () => {
   const renderItem = ({ item }: { item: Session }) => {
     const formattedDate = item.date ? new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No Date';
     // item.attended is returned from the backend in getSessionsByStudent
-    const isAttended = item.attended;
+    const isAttended = item.attended || checkedInSessions[item.id];
+    const sessionEndTime = item.endTime ? new Date(`${item.date}T${item.endTime}:00`) : null;
+    const isPassed = sessionEndTime ? sessionEndTime < new Date() : false;
+    console.log(isPassed, sessionEndTime);
 
     return (
       <View style={styles.card}>
@@ -269,21 +317,10 @@ const StudentSessionsScreen: React.FC = () => {
         <Text style={styles.detailText} numberOfLines={2}>
           📍 {item.classroom?.name || 'No Location'}
         </Text>
-        
+
         {item.isActive ? (
           <View style={{ marginTop: 16 }}>
-            {!item.attended && (
-              <TouchableOpacity
-                style={[styles.button, markingId === item.id && styles.buttonDisabled]}
-                onPress={() => handleMarkAttendance(item.id)}
-                disabled={markingId === item.id}
-              >
-                <Text style={styles.buttonText}>
-                  {markingId === item.id ? 'Checking location...' : 'Check In by Location'}
-                </Text>
-              </TouchableOpacity>
-            )}
-            {!checkedInSessions[item.id] ? (
+            {!isAttended ? (
               <TouchableOpacity
                 style={[styles.button, processingId === item.id && styles.buttonDisabled]}
                 onPress={() => handleLocationCheckin(item.id)}
@@ -311,9 +348,9 @@ const StudentSessionsScreen: React.FC = () => {
           </View>
         ) : (
           <View style={styles.closedNote}>
-             <Text style={styles.closedText}>
-               {isAttended ? '✅ Attendance Recorded' : 'Waiting for session to start'}
-             </Text>
+            <Text style={styles.closedText}>
+              {isAttended ? '✅ Attendance Recorded' : (isPassed ? '❌ Session Passed' : '_waiting for session to start')}
+            </Text>
           </View>
         )}
       </View>
@@ -345,10 +382,44 @@ const StudentSessionsScreen: React.FC = () => {
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyEmoji}>🗓️</Text>
               <Text style={styles.emptyText}>No sessions found for your enrolled courses.</Text>
+              <Text style={{ marginTop: 20, color: Colors.textMuted, fontSize: 10 }}>Debug Student ID: {user?.id}</Text>
+              <TouchableOpacity onPress={fetchSessions} style={{ marginTop: 10 }}>
+                <Text style={{ color: Colors.primary }}>Tap to retry</Text>
+              </TouchableOpacity>
             </View>
           }
         />
       )}
+
+      {/* QR Scanner Modal */}
+      <Modal
+        visible={scannerVisible}
+        animationType="slide"
+        onRequestClose={closeScanner}
+      >
+        <View style={styles.scannerOverlay}>
+          <View style={styles.scannerHeader}>
+            <Text style={styles.scannerTitle}>
+              {scannerMode === 'checkin' ? 'Scan Check-in QR' : 'Scan Check-out QR'}
+            </Text>
+            <TouchableOpacity onPress={closeScanner} style={styles.closeScannerBtn}>
+              <Text style={styles.closeScannerText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+
+          <CameraView
+            style={styles.camera}
+            onBarcodeScanned={scannerVisible ? handleBarCodeScanned : undefined}
+            barcodeScannerSettings={{
+              barcodeTypes: ['qr'],
+            }}
+          />
+
+          <View style={styles.scannerFooter}>
+            <Text style={styles.scannerHint}>Align the QR code within the frame</Text>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -446,6 +517,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     backgroundColor: Colors.accent,
   },
+  checkoutButton: {
+    backgroundColor: Colors.error,
+  },
   buttonDisabled: {
     opacity: 0.6,
   },
@@ -476,7 +550,46 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'center',
     maxWidth: '80%',
-  }
+  },
+  scannerOverlay: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  scannerHeader: {
+    paddingTop: 60,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    zIndex: 10,
+  },
+  scannerTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  closeScannerBtn: {
+    padding: 10,
+  },
+  closeScannerText: {
+    color: '#fff',
+    fontSize: 16,
+  },
+  camera: {
+    flex: 1,
+  },
+  scannerFooter: {
+    padding: 40,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  scannerHint: {
+    color: '#fff',
+    fontSize: 14,
+  },
 });
 
 export default StudentSessionsScreen;

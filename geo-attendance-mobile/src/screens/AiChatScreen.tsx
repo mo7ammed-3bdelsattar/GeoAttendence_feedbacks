@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
 import Colors from '../theme/colors';
 import Typography from '../theme/typography';
-import { aiApi } from '../services/api';
+import { chatbotApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 type ChatMessage = { id: string; role: 'user' | 'assistant'; content: string };
@@ -13,7 +13,7 @@ const AiChatScreen: React.FC = () => {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
 
-  const title = useMemo(() => 'AI Assistant', []);
+  const title = useMemo(() => 'Absattar AI', []);
 
   const send = async () => {
     const text = input.trim();
@@ -26,11 +26,8 @@ const AiChatScreen: React.FC = () => {
     setSending(true);
 
     try {
-      const res = await aiApi.chat({
-        message: text,
-        messages: next.map((m) => ({ role: m.role, content: m.content })),
-      });
-      const reply = String(res?.message || '').trim() || 'No response.';
+      const res = await chatbotApi.ask(text);
+      const reply = String(res?.response || '').trim() || 'No response.';
       setMessages((prev) => [...prev, { id: `${Date.now()}-a`, role: 'assistant', content: reply }]);
     } catch (e: any) {
       const serverMessage =
@@ -50,7 +47,7 @@ const AiChatScreen: React.FC = () => {
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={styles.header}>
         <Text style={styles.title}>{title}</Text>
-        <Text style={styles.subtitle}>Hi {user?.name?.split(' ')?.[0] || 'there'} — ask about QR & location attendance.</Text>
+        <Text style={styles.subtitle}>Hi {user?.name?.split(' ')?.[0] || 'there'} — ask me about policies, help, or attendance.</Text>
       </View>
 
       <FlatList
@@ -59,7 +56,7 @@ const AiChatScreen: React.FC = () => {
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
           <View style={styles.emptyBox}>
-            <Text style={styles.emptyText}>Try: “QR مش بيظهر ليه؟” أو “أعمل check-in بالـ location ازاي؟”</Text>
+            <Text style={styles.emptyText}>Hello! I am Absattar, your AI assistant. How can I help you today? You can ask me about attendance policies, university rules, or how to use this app.</Text>
           </View>
         }
         renderItem={({ item }) => (

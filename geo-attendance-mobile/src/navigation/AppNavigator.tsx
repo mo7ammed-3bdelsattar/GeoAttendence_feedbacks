@@ -31,8 +31,14 @@ import InstructorReportsScreen from '../screens/InstructorReportsScreen';
 import StudentDashboardScreen from '../screens/StudentDashboardScreen';
 import StudentSessionsScreen from '../screens/StudentSessionsScreen';
 import StudentFeedbackScreen from '../screens/StudentFeedbackScreen';
+import StudentChatbotScreen from '../screens/StudentChatbotScreen';
+import StudentChatScreen from '../screens/StudentChatScreen';
 import AiChatScreen from '../screens/AiChatScreen';
 import StudentCoursePickerScreen from '../screens/StudentCoursePickerScreen';
+import ProfileScreen from '../screens/ProfileScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
+import StudentBookStoreScreen from '../screens/StudentBookStoreScreen';
+import StudentCartScreen from '../screens/StudentCartScreen';
 import { MiniChatWidget } from '../components/MiniChatWidget';
 import { BackHandler, Alert } from 'react-native';
 
@@ -64,6 +70,8 @@ const AdminTabs = () => (
     <AdminTab.Screen name="Users" component={AdminUsersScreen} options={{ tabBarIcon: () => <Text>👥</Text> }} />
     <AdminTab.Screen name="Courses" component={AdminCoursesScreen} options={{ tabBarIcon: () => <Text>📚</Text> }} />
     <AdminTab.Screen name="Sessions" component={AdminSessionsScreen} options={{ tabBarIcon: () => <Text>🗓️</Text> }} />
+    <AdminTab.Screen name="Notifications" component={NotificationsScreen} options={{ tabBarIcon: () => <Text>🔔</Text> }} />
+    <AdminTab.Screen name="Profile" component={ProfileScreen} options={{ tabBarIcon: () => <Text>👤</Text> }} />
     <AdminTab.Screen name="Departments" component={AdminDepartmentsScreen} options={{ tabBarButton: () => null }} />
     <AdminTab.Screen name="Classrooms" component={AdminClassroomsScreen} options={{ tabBarButton: () => null }} />
     <AdminTab.Screen name="Enrollments" component={AdminEnrollmentsScreen} options={{ tabBarButton: () => null }} />
@@ -76,8 +84,10 @@ const InstructorTabs = () => (
   <InstructorTab.Navigator screenOptions={commonTabOptions}>
     <InstructorTab.Screen name="Dashboard" component={InstructorDashboardScreen} options={{ tabBarIcon: () => <Text>📊</Text> }} />
     <InstructorTab.Screen name="Sessions" component={InstructorSessionsScreen} options={{ tabBarIcon: () => <Text>🗓️</Text> }} />
-    <InstructorTab.Screen name="Feedback" component={InstructorFeedbackScreen} options={{ tabBarIcon: () => <Text>💬</Text> }} />
-    <InstructorTab.Screen name="Analytics" component={InstructorReportsScreen} options={{ tabBarIcon: () => <Text>📈</Text> }} />
+    <InstructorTab.Screen name="Notifications" component={NotificationsScreen} options={{ tabBarIcon: () => <Text>🔔</Text> }} />
+    <InstructorTab.Screen name="Profile" component={ProfileScreen} options={{ tabBarIcon: () => <Text>👤</Text> }} />
+    <InstructorTab.Screen name="Feedback" component={InstructorFeedbackScreen} options={{ tabBarButton: () => null }} />
+    <InstructorTab.Screen name="Analytics" component={InstructorReportsScreen} options={{ tabBarButton: () => null }} />
   </InstructorTab.Navigator>
 );
 
@@ -85,9 +95,12 @@ const StudentTabs = () => (
   <StudentTab.Navigator screenOptions={commonTabOptions}>
     <StudentTab.Screen name="Dashboard" component={StudentDashboardScreen} options={{ tabBarIcon: () => <Text>📊</Text> }} />
     <StudentTab.Screen name="Sessions" component={StudentSessionsScreen} options={{ tabBarIcon: () => <Text>📍</Text> }} />
-    <StudentTab.Screen name="Feedback" component={StudentFeedbackScreen} options={{ tabBarIcon: () => <Text>💬</Text> }} />
-    <StudentTab.Screen name="Chatbot" component={StudentChatbotScreen} options={{ tabBarIcon: () => <Text>🤖</Text> }} />
-    <StudentTab.Screen name="Chat" component={StudentChatScreen} options={{ tabBarIcon: () => <Text>🆘</Text> }} />
+    <StudentTab.Screen name="BookStore" component={StudentBookStoreScreen} options={{ tabBarLabel: 'Books', tabBarIcon: () => <Text>📚</Text> }} />
+    <StudentTab.Screen name="Notifications" component={NotificationsScreen} options={{ tabBarIcon: () => <Text>🔔</Text> }} />
+    <StudentTab.Screen name="Profile" component={ProfileScreen} options={{ tabBarIcon: () => <Text>👤</Text> }} />
+    <StudentTab.Screen name="Feedback" component={StudentFeedbackScreen} options={{ tabBarButton: () => null }} />
+    <StudentTab.Screen name="Chatbot" component={StudentChatbotScreen} options={{ tabBarButton: () => null }} />
+    <StudentTab.Screen name="Chat" component={StudentChatScreen} options={{ tabBarButton: () => null }} />
   </StudentTab.Navigator>
 );
 
@@ -155,6 +168,7 @@ const AppNavigator: React.FC = () => {
             )}
             <Stack.Screen name="AiChat" component={AiChatScreen} />
             <Stack.Screen name="StudentCoursePicker" component={StudentCoursePickerScreen} />
+            <Stack.Screen name="Cart" component={StudentCartScreen} options={{ presentation: 'modal' }} />
           </>
         ) : (
           <>

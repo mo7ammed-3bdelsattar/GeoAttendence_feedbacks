@@ -66,7 +66,8 @@ export const authApi = {
           id: userData.id,
           name: userData.name,
           email: userData.email,
-          role: userData.role
+          role: userData.role,
+          avatar: userData.avatar
         },
         token: finalToken
       };
@@ -81,7 +82,8 @@ export const authApi = {
             id: userData.id,
             name: userData.name,
             email: userData.email,
-            role: userData.role
+            role: userData.role,
+            avatar: userData.avatar
           },
           token: userData.token
         };
@@ -92,10 +94,40 @@ export const authApi = {
   },
 
   async logout(): Promise<void> {
+    try {
+      await clientAuth.signOut();
+      setAccessToken('');
+      localStorage.removeItem('userData');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   },
 
   async resetPassword(email: string): Promise<void> {
     await api.post('/auth/reset-password', { email });
+  },
+
+  async getMe(): Promise<User> {
+    const response = await api.get('/users/me');
+    return response.data;
+  }
+};
+
+export const userApi = {
+  async updateMe(payload: Partial<User>): Promise<User> {
+    const response = await api.patch('/users/me', payload);
+    return response.data;
+  },
+
+  async uploadAvatar(file: File): Promise<{ url: string }> {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    const response = await api.post('/users/upload-avatar', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
   }
 };
 
@@ -442,13 +474,6 @@ export const studentApi = {
     const response = await api.get('/student/my-courses');
     return response.data;
   }
-};
-
-export const aiApi = {
-  async chat(payload: { message: string; messages?: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> }): Promise<{ message: string; model?: string }> {
-    const response = await api.post('/ai/chat', payload);
-    return response.data;
-  },
 };
 
 export const chatbotApi = {

@@ -9,7 +9,7 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
   /** Restores the user session using the token in storage. */
   restoreSession: (user: User, token: string) => void;
   logout: () => Promise<void>;
@@ -17,6 +17,7 @@ interface AuthState {
   clearSession: () => void;
   resetPassword: (email: string) => Promise<void>;
   clearError: () => void;
+  updateUser: (user: Partial<User>) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -62,6 +63,12 @@ export const useAuthStore = create<AuthState>()(
         }
       },
       clearError: () => set({ error: null }),
+      updateUser: (updatedFields) => {
+        const currentUser = get().user;
+        if (currentUser) {
+          set({ user: { ...currentUser, ...updatedFields } });
+        }
+      },
     }),
     { name: 'geo-attendance-auth', partialize: (s) => ({ user: s.user, isAuthenticated: s.isAuthenticated }) }
   )

@@ -44,13 +44,15 @@ function getCredential() {
 try {
   // Check if already initialized to prevent errors
   if (!admin.apps.length) {
+    const bucketName = process.env.FIREBASE_STORAGE_BUCKET || `${process.env.FIREBASE_PROJECT_ID || 'geo2-626eb'}.appspot.com`;
+    
     admin.initializeApp({
       credential: getCredential(),
-      projectId: process.env.FIREBASE_PROJECT_ID || 'geo-attendance-6e1a4',
+      projectId: process.env.FIREBASE_PROJECT_ID || 'geo2-626eb',
       databaseURL: process.env.FIREBASE_DATABASE_URL,
-      storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+      storageBucket: bucketName,
     });
-    console.log('[FIREBASE-ADMIN] Initialized successfully.');
+    console.log(`[FIREBASE-ADMIN] Initialized successfully. Storage Bucket: ${bucketName}`);
   }
 } catch (error: any) {
   console.error('[FIREBASE-ADMIN] Initialization failed:', error.message);

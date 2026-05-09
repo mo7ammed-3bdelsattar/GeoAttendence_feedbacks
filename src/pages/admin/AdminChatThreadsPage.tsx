@@ -31,8 +31,8 @@ export function AdminChatThreadsPage() {
   };
 
   const filteredChats = chats.filter(chat => 
-    chat.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    chat.lastMessage.toLowerCase().includes(searchTerm.toLowerCase())
+    chat.studentName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    chat.lastMessage?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (

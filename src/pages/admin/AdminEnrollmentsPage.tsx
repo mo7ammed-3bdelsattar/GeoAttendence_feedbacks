@@ -19,7 +19,7 @@ import { Modal } from '../../components/Modal/index.ts';
 import { FormInput } from '../../components/forms/FormInput.tsx';
 import { TableSkeleton } from '../../components/ui/LoadingSkeleton.tsx';
 import { enrollmentApi, adminApi } from '../../services/api.ts';
-import type { Enrollment, User } from '../../types/index.ts';
+import type { Enrollment, User, Course } from '../../types/index.ts';
 import toast from 'react-hot-toast';
 
 type SortKey = 'courseName' | 'studentId' | 'enrolledAt';
@@ -29,6 +29,7 @@ const PAGE_SIZE = 10;
 export function AdminEnrollmentsPage() {
     const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
     const [students, setStudents] = useState<User[]>([]);
+    const [allCourses, setAllCourses] = useState<Course[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [sortKey, setSortKey] = useState<SortKey>('courseName');
@@ -43,6 +44,8 @@ export function AdminEnrollmentsPage() {
     const [submitting, setSubmitting] = useState(false);
 
     const [editEnrollment, setEditEnrollment] = useState<Enrollment | null>(null);
+    const [editStudentId, setEditStudentId] = useState('');
+    const [editCourseId, setEditCourseId] = useState('');
     const [editCourseName, setEditCourseName] = useState('');
     const [editSubmitting, setEditSubmitting] = useState(false);
 
@@ -51,12 +54,14 @@ export function AdminEnrollmentsPage() {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [eData, sData] = await Promise.all([
+            const [eData, sData, cData] = await Promise.all([
                 enrollmentApi.getEnrollments(),
-                adminApi.getUsers('student')
+                adminApi.getUsers('student'),
+                adminApi.getCourses()
             ]);
             setEnrollments(eData || []);
             setStudents(sData || []);
+            setAllCourses(cData || []);
         } catch (err: any) {
             console.error('Failed to fetch data:', err);
             toast.error('Failed to load enrollments.');
@@ -96,8 +101,8 @@ export function AdminEnrollmentsPage() {
     };
 
     const handleAdd = async () => {
-        if (!addStudentId.trim() || !addCourseId.trim() || !addCourseName.trim()) {
-            toast.error('All fields are required.');
+        if (!addStudentId.trim() || !addCourseId.trim()) {
+            toast.error('Student and Course are required.');
             return;
         }
         setSubmitting(true);
@@ -114,9 +119,23 @@ export function AdminEnrollmentsPage() {
         }
     };
 
+    const handleAddCourseSelect = (id: string) => {
+        setAddCourseId(id);
+        const c = allCourses.find(c => c.id === id);
+        setAddCourseName(c ? c.name : '');
+    };
+
     const openEdit = (e: Enrollment) => {
         setEditEnrollment(e);
+        setEditStudentId(e.studentId);
+        setEditCourseId(e.courseId);
         setEditCourseName(e.courseName ?? '');
+    };
+
+    const handleEditCourseSelect = (id: string) => {
+        setEditCourseId(id);
+        const c = allCourses.find(c => c.id === id);
+        setEditCourseName(c ? c.name : '');
     };
 
     const handleEdit = async () => {
@@ -124,6 +143,8 @@ export function AdminEnrollmentsPage() {
         setEditSubmitting(true);
         try {
             const updated = await enrollmentApi.updateEnrollment(editEnrollment.id, {
+                studentId: editStudentId,
+                courseId: editCourseId,
                 courseName: editCourseName,
             });
             setEnrollments((prev) => prev.map((e) => e.id === editEnrollment.id ? { ...e, ...updated } : e));
@@ -375,8 +396,20 @@ export function AdminEnrollmentsPage() {
                             ))}
                         </select>
                     </div>
-                    <FormInput label="Course ID" value={addCourseId} onChange={(e) => setAddCourseId(e.target.value)} fullWidth placeholder="e.g. CS101" />
-                    <FormInput label="Course Name" value={addCourseName} onChange={(e) => setAddCourseName(e.target.value)} fullWidth placeholder="e.g. Intro to Computer Science" />
+                    <div className="space-y-1">
+                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Course Selection</label>
+                        <select
+                            value={addCourseId}
+                            onChange={(e) => handleAddCourseSelect(e.target.value)}
+                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/10 transition-all outline-none"
+                        >
+                            <option value="">Select a course...</option>
+                            {allCourses.map(c => (
+                                <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
+                            ))}
+                        </select>
+                    </div>
+                    <FormInput label="Course Name (Auto)" value={addCourseName} onChange={(e) => setAddCourseName(e.target.value)} fullWidth placeholder="e.g. Intro to Computer Science" />
                 </div>
             </Modal>
 
@@ -394,19 +427,31 @@ export function AdminEnrollmentsPage() {
                 }
             >
                 <div className="space-y-4 py-2">
-                    {editEnrollment && (
-                        <div className="p-4 rounded-2xl bg-gray-50 border border-gray-100 space-y-2">
-                            <div className="flex items-center justify-between">
-                                <span className="text-[10px] uppercase font-bold text-gray-400">Student</span>
-                                <span className="text-sm font-bold text-gray-900">{getStudentName(editEnrollment.studentId)}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-[10px] uppercase font-bold text-gray-400">Course ID</span>
-                                <span className="text-sm font-bold text-gray-900">{editEnrollment.courseId}</span>
-                            </div>
-                        </div>
-                    )}
-                    <FormInput label="Course Name" value={editCourseName} onChange={(e) => setEditCourseName(e.target.value)} fullWidth />
+                    <div className="space-y-1">
+                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Student</label>
+                        <select
+                            value={editStudentId}
+                            onChange={(e) => setEditStudentId(e.target.value)}
+                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/10 transition-all outline-none"
+                        >
+                            {students.map(s => (
+                                <option key={s.id} value={s.id}>{s.name} ({s.email})</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Course</label>
+                        <select
+                            value={editCourseId}
+                            onChange={(e) => handleEditCourseSelect(e.target.value)}
+                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/10 transition-all outline-none"
+                        >
+                            {allCourses.map(c => (
+                                <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
+                            ))}
+                        </select>
+                    </div>
+                    <FormInput label="Course Name (Auto)" value={editCourseName} onChange={(e) => setEditCourseName(e.target.value)} fullWidth />
                 </div>
             </Modal>
 

@@ -6,6 +6,7 @@ export type RootStackParamList = {
   StudentTabs: undefined;
   AiChat: undefined;
   StudentCoursePicker: undefined;
+  Cart: undefined;
 };
 
 export type AdminTabParamList = {
@@ -18,6 +19,8 @@ export type AdminTabParamList = {
   Enrollments: undefined;
   FeedbackAudit: undefined;
   AdminReports: undefined;
+  Notifications: undefined;
+  Profile: undefined;
 };
 
 export type InstructorTabParamList = {
@@ -25,6 +28,8 @@ export type InstructorTabParamList = {
   Sessions: undefined;
   Feedback: undefined;
   Analytics: undefined;
+  Notifications: undefined;
+  Profile: undefined;
 };
 
 export type StudentTabParamList = {
@@ -33,4 +38,7 @@ export type StudentTabParamList = {
   Feedback: undefined;
   Chatbot: undefined;
   Chat: undefined;
+  Notifications: undefined;
+  Profile: undefined;
+  BookStore: undefined;
 };

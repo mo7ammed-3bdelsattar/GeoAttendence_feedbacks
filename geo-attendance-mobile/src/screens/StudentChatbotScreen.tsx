@@ -7,7 +7,7 @@ import { chatbotApi } from '../services/api';
 const StudentChatbotScreen: React.FC = () => {
   const [query, setQuery] = useState('');
   const [messages, setMessages] = useState<{ sender: 'user' | 'bot', text: string }[]>([
-    { sender: 'bot', text: 'Hello! I am your University Assistant. Ask me anything about college policies.' }
+    { sender: 'bot', text: 'Hello! I am Absattar, your AI assistant. How can I help you today? You can ask me about attendance policies, university rules, or how to use this app.' }
   ]);
   const [loading, setLoading] = useState(false);
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Calendar, Clock, MapPin, Navigation, CheckCircle2 } from 'lucide-react';
+import { Calendar, Clock, MapPin, Navigation, CheckCircle2, User } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell.tsx';
 import { TableSkeleton } from '../../components/ui/LoadingSkeleton.tsx';
 import { attendanceApi, sessionApi } from '../../services/api.ts';
@@ -160,7 +160,7 @@ export function StudentSessionsPage() {
                   <div className="flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" /> {session.classroomName}</div>
                 </div>
 
-                {session.status === 'active' ? (
+                {session.status?.toLowerCase() === 'active' ? (
                   <div className="mt-4 grid gap-3">
                     {!session.attended && !checkedInSessions[session.id] ? (
                       <button

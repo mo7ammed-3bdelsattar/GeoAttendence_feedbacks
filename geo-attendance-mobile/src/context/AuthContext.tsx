@@ -17,6 +17,7 @@ export interface AppUser {
   email: string | null;
   name: string;
   role: UserRole;
+  photoURL?: string;
 }
 
 const normalizeBackendRole = (role?: string): UserRole => {
@@ -33,6 +34,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  updateProfile: (data: Partial<AppUser>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -43,6 +45,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const updateProfile = async (data: Partial<AppUser>) => {
+    if (!user) return;
+    const updatedUser = { ...user, ...data };
+    setUser(updatedUser);
+    await AsyncStorage.setItem('userData', JSON.stringify(updatedUser));
+  };
 
   useEffect(() => {
     const bootstrap = async () => {
@@ -104,6 +113,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       email: backendUser.email,
       name: backendUser.name,
       role: normalizeBackendRole(backendUser.role),
+      photoURL: backendUser.photoURL,
     };
 
     setUser(appUser);
@@ -133,7 +143,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   return (
     <AuthContext.Provider
-      value={{ user, firebaseUser, loading, login, logout, resetPassword }}
+      value={{ user, firebaseUser, loading, login, logout, resetPassword, updateProfile }}
     >
       {children}
     </AuthContext.Provider>

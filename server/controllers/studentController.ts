@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { db } from '../config/firebase-admin';
+import { USE_MOCK_AUTH, MOCK_USERS } from './userController';
 
 type StudentScheduleRow = {
     courseId: string;
@@ -62,11 +63,11 @@ export const studentScheduleController = {
             const uniqueCourseIds = Array.from(new Set(courseIds));
 
             await db.runTransaction(async (transaction) => {
-                const enrollCol = db.collection('student_courses');
+                const enrollCol = db.collection('enrollments');
                 
                 // 1. Find all existing courses for this student
                 const existingSnap = await transaction.get(
-                    enrollCol.where('student_id', '==', studentId)
+                    enrollCol.where('studentId', '==', studentId)
                 );
 
                 // 2. Clear previous selections
@@ -78,9 +79,10 @@ export const studentScheduleController = {
                 for (const cid of uniqueCourseIds) {
                     const newRef = enrollCol.doc();
                     transaction.set(newRef, {
-                        student_id: studentId,
-                        course_id: cid,
-                        created_at: new Date().toISOString()
+                        studentId: studentId,
+                        courseId: cid,
+                        enrolledAt: new Date().toISOString(),
+                        createdAt: new Date().toISOString()
                     });
                 }
             });
@@ -102,11 +104,11 @@ export const studentScheduleController = {
             if (!studentId) return res.status(400).json({ error: 'studentId required' });
 
             // 1. Fetch Enrolled Course IDs
-            const enrollSnap = await db.collection('student_courses')
-                .where('student_id', '==', studentId)
+            const enrollSnap = await db.collection('enrollments')
+                .where('studentId', '==', studentId)
                 .get();
             
-            const myCourseIds = enrollSnap.docs.map(doc => doc.data().course_id);
+            const myCourseIds = enrollSnap.docs.map(doc => doc.data().courseId);
             if (myCourseIds.length === 0) {
                 return res.json({ timetable: {}, total: 0 });
             }
@@ -133,6 +135,12 @@ export const studentScheduleController = {
 
             const coursesMap = Object.fromEntries(coursesSnap.docs.map(d => [d.id, d.data()]));
             const usersMap = Object.fromEntries(usersSnap.docs.map(d => [d.id, d.data()]));
+
+            if (USE_MOCK_AUTH) {
+                MOCK_USERS.forEach(u => {
+                    if (!usersMap[u.id]) usersMap[u.id] = u;
+                });
+            }
 
             const sessionsWithMeta = sessions.map(s => {
                 // Determine day name (support both 'day' field and 'date' field)
@@ -213,6 +221,14 @@ export const getMySchedule = async (req: Request, res: Response) => {
         ]);
         const coursesMap = Object.fromEntries(coursesSnap.docs.map((doc) => [doc.id, doc.data()]));
         const instructorsMap = Object.fromEntries(usersSnap.docs.map((doc) => [doc.id, doc.data()]));
+
+        if (USE_MOCK_AUTH) {
+            MOCK_USERS.forEach(u => {
+                if (u.role === 'faculty' && !instructorsMap[u.id]) {
+                    instructorsMap[u.id] = u;
+                }
+            });
+        }
 
         const sessions: any[] = [];
         for (let i = 0; i < courseIds.length; i += 30) {
@@ -338,6 +354,12 @@ export const getStudentDashboard = async (req: Request, res: Response) => {
                     instructorsMap[doc.id] = doc.data();
                 });
             }
+        }
+
+        if (USE_MOCK_AUTH) {
+            MOCK_USERS.forEach(u => {
+                if (!instructorsMap[u.id]) instructorsMap[u.id] = u;
+            });
         }
 
         const todayStr = new Date().toISOString().split('T')[0];

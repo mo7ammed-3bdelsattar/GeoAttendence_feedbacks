@@ -63,3 +63,23 @@ export interface Feedback {
   message?: string;
   createdAt?: string;
 }
+
+export interface Book {
+  id: string;
+  title: string;
+  author: string;
+  price: number;
+  borrowPrice?: number;
+  isBorrowable: boolean;
+  description: string;
+  category: string;
+  coverImage: string;
+}
+
+export type CartAction = 'buy' | 'borrow';
+
+export interface CartItem extends Book {
+  quantity: number;
+  action: CartAction;
+  duration?: number;
+}

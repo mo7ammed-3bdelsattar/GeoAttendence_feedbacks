@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { db } from '../config/firebase-admin';
 import { getAuthenticatedUser } from '../middleware/authGuard';
+import { USE_MOCK_AUTH, MOCK_USERS } from './userController';
 
 const UNENROLL_WINDOW_HOURS = Number(process.env.UNENROLL_WINDOW_HOURS ?? 24);
 const UNENROLL_WINDOW_MS = (Number.isFinite(UNENROLL_WINDOW_HOURS) && UNENROLL_WINDOW_HOURS > 0 ? UNENROLL_WINDOW_HOURS : 24) * 60 * 60 * 1000;
@@ -113,7 +114,7 @@ export const unenrollStudent = async (req: Request, res: Response) => {
             return res.status(400).json({ error: 'Course ID is required' });
         }
 
-        const currentUser = getAuthenticatedUser(req);
+        const currentUser = await getAuthenticatedUser(req);
         if (!currentUser?.uid) {
             return res.status(401).json({ error: 'Unauthorized' });
         }
@@ -180,7 +181,7 @@ export const updateEnrollment = async (req: Request, res: Response) => {
 
 export const getMyCourses = async (req: Request, res: Response) => {
     try {
-        const currentUser = getAuthenticatedUser(req);
+        const currentUser = await getAuthenticatedUser(req);
         if (!currentUser?.uid) {
             return res.status(401).json({ error: 'Unauthorized' });
         }
@@ -200,6 +201,14 @@ export const getMyCourses = async (req: Request, res: Response) => {
         ]);
         const courseMap = Object.fromEntries(coursesSnap.docs.map((doc) => [doc.id, doc.data()]));
         const facultyMap = Object.fromEntries(facultySnap.docs.map((doc) => [doc.id, doc.data()]));
+
+        if (USE_MOCK_AUTH) {
+            MOCK_USERS.forEach(u => {
+                if (u.role === 'faculty' && !facultyMap[u.id]) {
+                    facultyMap[u.id] = u;
+                }
+            });
+        }
 
         const sessions: any[] = [];
         for (let i = 0; i < courseIds.length; i += 30) {

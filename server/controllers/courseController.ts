@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { db } from '../config/firebase-admin';
+import { USE_MOCK_AUTH, MOCK_USERS } from './userController';
 
 export const getCourses = async (req: Request, res: Response) => {
   try {
@@ -12,10 +13,33 @@ export const getCourses = async (req: Request, res: Response) => {
     }
 
     const snapshot = await query.get();
-    const courses = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    
+    // Enrich courses with faculty names
+    const facultyIds = Array.from(new Set(snapshot.docs.map(doc => doc.data().facultyId).filter(Boolean)));
+    let facultyMap: Record<string, any> = {};
+    
+    if (facultyIds.length > 0) {
+        const facultyDocs = await db.getAll(...facultyIds.map(id => db.collection('users').doc(String(id))));
+        facultyDocs.forEach(d => {
+            if (d.exists) facultyMap[d.id] = d.data();
+        });
+    }
+
+    if (USE_MOCK_AUTH) {
+        MOCK_USERS.forEach(u => {
+            if (!facultyMap[u.id]) facultyMap[u.id] = u;
+        });
+    }
+
+    const courses = snapshot.docs.map(doc => {
+        const data = doc.data();
+        const faculty = facultyMap[data.facultyId];
+        return {
+            id: doc.id,
+            ...data,
+            facultyName: faculty?.name || data.facultyName || 'Not Assigned'
+        };
+    });
 
     res.json(courses);
   } catch (error: any) {

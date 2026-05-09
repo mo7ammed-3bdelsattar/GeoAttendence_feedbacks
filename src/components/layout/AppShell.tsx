@@ -28,7 +28,7 @@ const studentNav = [
   { to: '/student/schedule', label: 'My Schedule', icon: CalendarDays },
   { to: '/student/profile', label: 'Profile', icon: User },
   { to: '/student/feedback', label: 'Feedback', icon: Star },
-  { to: '/student/chatbot', label: 'Bot Assistant', icon: MessageSquare },
+  { to: '/chatbot', label: 'Bot Assistant', icon: MessageSquare },
   { to: '/student/bookstore', label: 'Book Store', icon: BookOpen },
   { to: '/student/chat', label: 'Support', icon: MessageSquare },
 ];
@@ -177,8 +177,12 @@ export function AppShell({ children, title }: AppShellProps) {
               onClick={() => setUserMenuOpen((o) => !o)}
               className="flex items-center gap-2.5 p-1.5 rounded-xl hover:bg-gray-50 transition-all border border-transparent hover:border-gray-100"
             >
-              <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-inner">
-                <User className="h-5 w-5 text-primary" />
+              <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-inner overflow-hidden">
+                {user?.avatar ? (
+                  <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                ) : (
+                  <User className="h-5 w-5 text-primary" />
+                )}
               </div>
               <div className="hidden sm:block text-left">
                 <p className="text-xs font-bold text-gray-900 leading-none mb-1 truncate max-w-[100px]">
@@ -197,7 +201,7 @@ export function AppShell({ children, title }: AppShellProps) {
                     <p className="text-[11px] text-gray-400 truncate">{user?.email}</p>
                   </div>
                   <div className="p-1 mt-1">
-                    <Link to={role === 'student' ? '/student/profile' : '#'} className="flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50 rounded-lg transition-all">
+                    <Link to="/profile" className="flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50 rounded-lg transition-all">
                       <User className="h-4 w-4" /> Profile Settings
                     </Link>
                     <button

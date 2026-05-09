@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { aiApi } from '../services/api.ts';
+import { chatbotApi } from '../services/api.ts';
 
 export type AiChatMessage = { role: 'user' | 'assistant'; content: string };
 
@@ -35,11 +35,8 @@ export const useAiChatStore = create<State>()((set, get) => ({
     const nextMessages: AiChatMessage[] = [...get().messages, { role: 'user', content: text }];
     set({ messages: nextMessages, input: '', sending: true, error: null });
     try {
-      const res = await aiApi.chat({
-        message: text,
-        messages: nextMessages.map((m) => ({ role: m.role, content: m.content })),
-      });
-      const reply = (res?.message || '').trim() || 'No response.';
+      const res = await chatbotApi.ask(text);
+      const reply = (res?.response || '').trim() || 'No response.';
       set((s) => ({ messages: [...s.messages, { role: 'assistant', content: reply }], sending: false }));
     } catch (e: any) {
       set({ sending: false, error: e?.message || 'Failed to send.' });

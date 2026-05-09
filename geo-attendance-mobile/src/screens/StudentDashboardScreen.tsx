@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, ScrollView, RefreshControl, TouchableOpacity, Modal, Pressable, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, ScrollView, RefreshControl, TouchableOpacity, Modal, Pressable, useWindowDimensions, Alert, Image } from 'react-native';
+import * as Location from 'expo-location';
+import { useNavigation } from '@react-navigation/native';
 import Colors from '../theme/colors';
 import Typography from '../theme/typography';
 import { useAuth } from '../context/AuthContext';
@@ -12,6 +14,7 @@ const StudentDashboardScreen: React.FC = () => {
   const isWideScreen = width >= 1024;
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [checkingIn, setCheckingIn] = useState(false);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [stats, setStats] = useState({
     attendancePercentage: 0,
@@ -21,6 +24,7 @@ const StudentDashboardScreen: React.FC = () => {
     sessions: 0,
   });
   const [attendedSessions, setAttendedSessions] = useState<Session[]>([]);
+  const [allSessionsList, setAllSessionsList] = useState<Session[]>([]);
   const [feedbackRows, setFeedbackRows] = useState<Feedback[]>([]);
   const [courseNameMap, setCourseNameMap] = useState<Record<string, string>>({});
 
@@ -38,12 +42,13 @@ const StudentDashboardScreen: React.FC = () => {
     if (!user) return;
     try {
       const [result, allSessions, feedback] = await Promise.all([
-        studentApi.getStudentDashboard(user.id),
+        studentApi.getStudentDashboard(user.id).catch(() => ({ courses: [], feedbackCount: 0 })),
         sessionApi.getSessions().catch(() => []),
         feedbackApi.getFeedbackByStudent(user.id).catch(() => [])
       ]);
 
       const sessions: Session[] = (allSessions as Session[]) || [];
+      setAllSessionsList(sessions);
       const courses: Course[] = result.courses || [];
       const courseLookup = courses.reduce<Record<string, string>>((acc, course) => {
         acc[course.id] = course.name;
@@ -95,88 +100,19 @@ const StudentDashboardScreen: React.FC = () => {
     }
   };
 
-  const handleLocationCheckin = async (sessionId: string) => {
-    setCheckingIn(true);
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Location access is required for check-in.');
-        return;
-      }
-
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High
-      });
-
-      await attendanceApi.locationCheckin({
-        sessionId,
-        gpsCoords: {
-          lat: location.coords.latitude,
-          lng: location.coords.longitude
-        }
-      });
-
-      Alert.alert('Success', 'You have checked in successfully!');
-      fetchDashboard();
-    } catch (error: any) {
-      Alert.alert('Check-in Failed', error.message || 'Unable to verify your location.');
-    } finally {
-      setCheckingIn(false);
-    }
-  };
-
-  const handleLocationCheckout = async (sessionId: string) => {
-    setCheckingIn(true); // Re-use checkingIn state for loading UI
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Location access is required for check-out.');
-        return;
-      }
-
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High
-      });
-
-      await attendanceApi.locationCheckout({
-        sessionId,
-        gpsCoords: {
-          lat: location.coords.latitude,
-          lng: location.coords.longitude
-        }
-      });
-
-      Alert.alert('Success', 'You have checked out successfully!');
-      fetchDashboard();
-    } catch (error: any) {
-      Alert.alert('Check-out Failed', error.message || 'Unable to verify your location.');
-    } finally {
-      setCheckingIn(false);
-    }
-  };
-
   useEffect(() => {
     fetchDashboard();
   }, [user]);
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <View style={styles.skeletonCard} />
-        <View style={styles.skeletonGrid}>
-          <View style={styles.skeletonStat} />
-          <View style={styles.skeletonStat} />
-          <View style={styles.skeletonStat} />
-        </View>
-        <ActivityIndicator size="small" color={Colors.primary} style={{ marginTop: 12 }} />
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color={Colors.primary} />
       </View>
     );
   }
 
-  // A session is considered "Done" for the student if they checked out or session ended
-  const activeSessions = data.sessions.filter(s => 
-    s.isActive && !s.checkedOut
-  );
+  const initials = (user?.name || '').split(' ').filter(Boolean).slice(0, 1).map(n => n[0]).join('').toUpperCase() || 'S';
 
   return (
     <View style={styles.screen}>
@@ -186,10 +122,19 @@ const StudentDashboardScreen: React.FC = () => {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchDashboard(); }} tintColor={Colors.primary} />}
       >
         <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.title}>Hello, {user?.name.split(' ')[0]}</Text>
-            <Text style={styles.subtitle}>Welcome back to GeoAttend!</Text>
-          </View>
+          <TouchableOpacity style={styles.headerProfile} onPress={() => navigation.navigate('Profile')}>
+             {user?.photoURL ? (
+               <Image source={{ uri: user.photoURL }} style={styles.avatar} />
+             ) : (
+               <View style={styles.avatarPlaceholder}>
+                 <Text style={styles.avatarText}>{initials}</Text>
+               </View>
+             )}
+             <View>
+               <Text style={styles.title}>Hello, {(user?.name || 'Student').split(' ')[0]}</Text>
+               <Text style={styles.subtitle}>Welcome back to GeoAttend!</Text>
+             </View>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.logoutButton} onPress={logout}>
             <Text style={styles.logoutText}>Logout</Text>
           </TouchableOpacity>
@@ -315,23 +260,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  skeletonCard: {
-    marginTop: 40,
-    height: 110,
-    borderRadius: 14,
-    backgroundColor: Colors.surfaceLight,
-  },
-  skeletonGrid: {
-    marginTop: 14,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  skeletonStat: {
-    width: '31%',
-    height: 100,
-    borderRadius: 14,
-    backgroundColor: Colors.surfaceLight,
-  },
   title: {
     ...Typography.Typography.h1,
     marginBottom: 4,
@@ -347,6 +275,33 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     marginTop: 40,
   },
+  headerProfile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  avatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 2,
+    borderColor: Colors.primary,
+  },
+  avatarPlaceholder: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: Colors.surfaceLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  avatarText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Colors.primary,
+  },
   logoutButton: {
     backgroundColor: Colors.surfaceLight,
     paddingHorizontal: 16,
@@ -358,58 +313,6 @@ const styles = StyleSheet.create({
   logoutText: {
     ...Typography.Typography.label,
     color: Colors.accent,
-  },
-  activeSessionHero: {
-    backgroundColor: Colors.primary,
-    borderRadius: 20,
-    padding: 24,
-    marginBottom: 24,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 15,
-    elevation: 8,
-  },
-  activeHeroHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  pulseDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#4ade80',
-    marginRight: 8,
-  },
-  activeHeroTitle: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 12,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  activeHeroCourse: {
-    color: '#fff',
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  activeHeroTime: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 14,
-    marginBottom: 20,
-  },
-  heroCheckinButton: {
-    backgroundColor: '#fff',
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  heroCheckinText: {
-    color: Colors.primary,
-    fontSize: 15,
-    fontWeight: 'bold',
   },
   gridContainer: {
     flexDirection: 'row',
@@ -593,77 +496,6 @@ const styles = StyleSheet.create({
   statLabel: {
     ...Typography.Typography.label,
     textAlign: 'center',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 24,
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    ...Typography.Typography.h2,
-  },
-  viewAllText: {
-    ...Typography.Typography.label,
-    color: Colors.primary,
-  },
-  sessionCard: {
-    backgroundColor: Colors.card,
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  sessionInfo: {
-    flex: 1,
-  },
-  sessionCourse: {
-    ...Typography.Typography.h3,
-    marginBottom: 2,
-  },
-  sessionInstructor: {
-    ...Typography.Typography.body,
-    color: Colors.textPrimary,
-    fontSize: 12,
-    marginBottom: 2,
-  },
-  sessionTime: {
-    ...Typography.Typography.body,
-    color: Colors.textSecondary,
-    fontSize: 11,
-  },
-  checkinButton: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  checkinButtonDisabled: {
-    backgroundColor: Colors.textMuted,
-    opacity: 0.5,
-  },
-  checkinButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 12,
-  },
-  emptySessions: {
-    padding: 20,
-    alignItems: 'center',
-    backgroundColor: Colors.surfaceLight,
-    borderRadius: 12,
-    borderStyle: 'dashed',
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  emptyText: {
-    ...Typography.Typography.body,
-    color: Colors.textSecondary,
   },
 });
 
