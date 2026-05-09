@@ -45,15 +45,15 @@ export function AttendanceSummary({ summary }: AttendanceSummaryProps) {
     <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-3xl bg-white p-6 shadow-sm">
-          <p className="text-sm text-gray-500">✅ حضروا كامل</p>
+          <p className="text-sm text-gray-500">Presented</p>
           <p className="mt-3 text-3xl font-semibold text-emerald-700">{summary.checkedInAndOut}</p>
         </div>
         <div className="rounded-3xl bg-white p-6 shadow-sm">
-          <p className="text-sm text-gray-500">⚠️ دخلوا بس</p>
+          <p className="text-sm text-gray-500">Checked-in Only</p>
           <p className="mt-3 text-3xl font-semibold text-amber-700">{summary.checkedInOnly}</p>
         </div>
         <div className="rounded-3xl bg-white p-6 shadow-sm">
-          <p className="text-sm text-gray-500">❌ غابوا</p>
+          <p className="text-sm text-gray-500">Absent</p>
           <p className="mt-3 text-3xl font-semibold text-rose-700">{summary.totalAbsent}</p>
         </div>
       </div>

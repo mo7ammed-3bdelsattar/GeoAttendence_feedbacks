@@ -19,6 +19,7 @@ const StudentSessionsScreen: React.FC = () => {
   const [scannerSessionId, setScannerSessionId] = useState<string | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [checkedInSessions, setCheckedInSessions] = useState<Record<string, boolean>>({});
+  const [checkedOutSessions, setCheckedOutSessions] = useState<Record<string, boolean>>({});
   const [autoChecking, setAutoChecking] = useState(false);
 
   const calculateDistanceMeters = (
@@ -130,6 +131,7 @@ const StudentSessionsScreen: React.FC = () => {
         }
       });
 
+      setCheckedOutSessions((prev) => ({ ...prev, [sessionId]: true }));
       Alert.alert('Success', 'You have checked out successfully!');
       fetchSessions();
     } catch (error: any) {
@@ -283,10 +285,7 @@ const StudentSessionsScreen: React.FC = () => {
             lng: location.coords.longitude,
           },
         });
-        setCheckedInSessions((prev) => ({ ...prev, [sessionId]: false }));
-        setSessions((prev) => prev.map((session) =>
-          session.id === sessionId ? { ...session, attended: false } : session
-        ));
+        setCheckedOutSessions((prev) => ({ ...prev, [sessionId]: true }));
         Alert.alert('Checked out', 'You have successfully checked out.');
         fetchSessions();
       } catch (error: any) {
@@ -299,6 +298,7 @@ const StudentSessionsScreen: React.FC = () => {
     const formattedDate = item.date ? new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No Date';
     // item.attended is returned from the backend in getSessionsByStudent
     const isAttended = item.attended || checkedInSessions[item.id];
+    const isCheckedOut = checkedOutSessions[item.id];
     const sessionEndTime = item.endTime ? new Date(`${item.date}T${item.endTime}:00`) : null;
     const isPassed = sessionEndTime ? sessionEndTime < new Date() : false;
     console.log(isPassed, sessionEndTime);
@@ -332,7 +332,7 @@ const StudentSessionsScreen: React.FC = () => {
                   <Text style={styles.buttonText}>Check-in via Location</Text>
                 )}
               </TouchableOpacity>
-            ) : (
+            ) : !isCheckedOut ? (
               <TouchableOpacity
                 style={[styles.button, styles.checkoutButton, processingId === item.id && styles.buttonDisabled]}
                 onPress={() => handleLocationCheckout(item.id)}
@@ -344,6 +344,10 @@ const StudentSessionsScreen: React.FC = () => {
                   <Text style={styles.buttonText}>Check-out via Location</Text>
                 )}
               </TouchableOpacity>
+            ) : (
+              <View style={[styles.closedNote, { marginTop: 16 }]}>
+                <Text style={styles.closedText}>✅ Checked Out</Text>
+              </View>
             )}
           </View>
         ) : (
