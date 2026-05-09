@@ -9,23 +9,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 config();
 
 function getCredential() {
-  const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './service-account.json';
-  
-  // Try multiple possible locations for the service account file
-  const possiblePaths = [
-    resolve(process.cwd(), serviceAccountPath),
-    resolve(process.cwd(), 'src/assets/service-account.json'),
-    resolve(__dirname, '../../src/assets/service-account.json'),
-    resolve(__dirname, '../service-account.json')
-  ];
-
-  for (const absPath of possiblePaths) {
-    if (existsSync(absPath)) {
-      console.log(`[FIREBASE-ADMIN] Using service account file at: ${absPath}`);
-      return admin.credential.cert(absPath);
-    }
-  }
-
+  // 1. Prioritize individual environment variables (Best for Render/Vercel)
   const inlineConfig = {
     projectId: process.env.FIREBASE_PROJECT_ID,
     clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
@@ -33,13 +17,29 @@ function getCredential() {
   };
 
   if (inlineConfig.projectId && inlineConfig.clientEmail && inlineConfig.privateKey) {
-    console.log('[FIREBASE-ADMIN] Using individual environment variables.');
+    console.log('[FIREBASE-ADMIN] Using individual environment variables (Production Mode).');
     return admin.credential.cert(inlineConfig as admin.ServiceAccount);
   }
 
-  console.warn('[FIREBASE-ADMIN] WARNING: No service_account.json found and env variables incomplete. Falling back to applicationDefault().');
+  // 2. Fallback to Service Account JSON file (Best for Local Development)
+  const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './service-account.json';
+  const possiblePaths = [
+    resolve(process.cwd(), serviceAccountPath),
+    resolve(__dirname, '../service-account.json'),
+    resolve(__dirname, '../../service-account.json')
+  ];
+
+  for (const absPath of possiblePaths) {
+    if (existsSync(absPath)) {
+      console.log(`[FIREBASE-ADMIN] Using service account file at: ${absPath} (Local Mode).`);
+      return admin.credential.cert(absPath);
+    }
+  }
+
+  console.warn('[FIREBASE-ADMIN] WARNING: No Environment Variables found and no service-account.json detected. Using applicationDefault().');
   return admin.credential.applicationDefault();
 }
+
 
 try {
   // Check if already initialized to prevent errors
