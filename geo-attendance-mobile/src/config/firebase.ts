@@ -1,7 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
+import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -16,9 +16,9 @@ const firebaseConfig = {
 // Initialize Firebase app (singleton)
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// On web, getAuth() uses standard browser persistence by default
-const auth = getAuth(app);
-
+// Auth with React Native AsyncStorage persistence
+const auth =out persistence (temporary fix)
+const auth = getAuth(app
 export { auth };
 export const db = getFirestore(app);
 export default app;

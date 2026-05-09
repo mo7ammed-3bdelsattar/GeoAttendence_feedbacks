@@ -131,7 +131,8 @@ export const authApi = {
             id: userData.id,
             name: userData.name,
             email: userData.email,
-            role: userData.role
+            role: userData.role,
+            photoURL: userData.photoURL
           },
           token: userData.token
         };

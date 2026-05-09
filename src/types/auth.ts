@@ -5,7 +5,7 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
-  avatar?: string;
+  photoURL?: string;
 }
 
 export interface LoginPayload {

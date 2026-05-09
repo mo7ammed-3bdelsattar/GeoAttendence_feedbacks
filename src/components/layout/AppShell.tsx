@@ -178,8 +178,8 @@ export function AppShell({ children, title }: AppShellProps) {
               className="flex items-center gap-2.5 p-1.5 rounded-xl hover:bg-gray-50 transition-all border border-transparent hover:border-gray-100"
             >
               <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-inner overflow-hidden">
-                {user?.avatar ? (
-                  <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                {user?.photoURL ? (
+                  <img src={user.photoURL} alt={user.name} className="w-full h-full object-cover" />
                 ) : (
                   <User className="h-5 w-5 text-primary" />
                 )}

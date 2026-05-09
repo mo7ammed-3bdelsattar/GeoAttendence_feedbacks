@@ -93,10 +93,10 @@ export function ProfilePage() {
     try {
       const { url } = await userApi.uploadAvatar(file);
       
-      // Update profile with new avatar URL
-      const updatedUser = await userApi.updateMe({ avatar: url });
+      // Update profile with new avatar URL (photoURL)
+      const updatedUser = await userApi.updateMe({ photoURL: url });
       setProfileData(updatedUser);
-      updateUser({ avatar: url });
+      updateUser({ photoURL: url });
       
       toast.success('Avatar updated successfully!', { id: loadingToast });
     } catch (error: any) {
@@ -135,8 +135,8 @@ export function ProfilePage() {
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm flex flex-col items-center text-center">
             <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
               <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mb-4 overflow-hidden border-2 border-white shadow-md relative">
-                {displayUser.avatar ? (
-                  <img src={displayUser.avatar} alt={displayUser.name} className="w-full h-full object-cover" />
+                {displayUser.photoURL ? (
+                  <img src={displayUser.photoURL} alt={displayUser.name} className="w-full h-full object-cover" />
                 ) : (
                   <User className="h-12 w-12 text-primary" />
                 )}

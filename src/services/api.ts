@@ -67,7 +67,7 @@ export const authApi = {
           name: userData.name,
           email: userData.email,
           role: userData.role,
-          avatar: userData.avatar
+          photoURL: userData.photoURL
         },
         token: finalToken
       };
@@ -83,7 +83,7 @@ export const authApi = {
             name: userData.name,
             email: userData.email,
             role: userData.role,
-            avatar: userData.avatar
+            photoURL: userData.photoURL
           },
           token: userData.token
         };
