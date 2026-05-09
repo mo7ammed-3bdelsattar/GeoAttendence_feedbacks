@@ -485,7 +485,25 @@ export const checkOutWithLocation = async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'geofence_violation', message: 'Please go to the classroom and try again.' });
     }
 
-    await sessionRef.collection('attendanceRecords').doc(currentUser.uid).set({ checkOutAt: new Date().toISOString() }, { merge: true });
+    const checkOutAt = new Date().toISOString();
+    const batch = db.batch();
+    
+    // 1. Update subcollection
+    batch.set(sessionRef.collection('attendanceRecords').doc(currentUser.uid), { checkOutAt }, { merge: true });
+
+    // 2. Update root collection (used by summary generator)
+    const attendanceQuery = await db.collection('attendance')
+      .where('sessionId', '==', sessionId)
+      .where('studentId', '==', currentUser.uid)
+      .limit(1)
+      .get();
+      
+    if (!attendanceQuery.empty) {
+      batch.update(attendanceQuery.docs[0].ref, { checkOutAt });
+    }
+
+    await batch.commit();
+
     return res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -666,7 +684,25 @@ export const checkOutWithQr = async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'not_checked_in', message: 'You must check in before checking out.' });
     }
 
-    await attendanceRef.set({ checkOutAt: new Date().toISOString() }, { merge: true });
+    const checkOutAt = new Date().toISOString();
+    const batch = db.batch();
+
+    // 1. Update subcollection
+    batch.set(attendanceRef, { checkOutAt }, { merge: true });
+
+    // 2. Update root collection (used by summary generator)
+    const attendanceQuery = await db.collection('attendance')
+      .where('sessionId', '==', decoded.sessionId)
+      .where('studentId', '==', currentUser.uid)
+      .limit(1)
+      .get();
+      
+    if (!attendanceQuery.empty) {
+      batch.update(attendanceQuery.docs[0].ref, { checkOutAt });
+    }
+
+    await batch.commit();
+
     return res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
