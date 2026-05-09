@@ -13,10 +13,8 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Prevent re-initialization on hot reload
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Auth with explicit persistence for React Native
 const auth = initializeAuth(app, {
   persistence: getReactNativePersistence(AsyncStorage),
 });

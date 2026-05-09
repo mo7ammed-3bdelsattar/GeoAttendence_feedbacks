@@ -39,7 +39,6 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow everything in development to simplify mobile testing
     if (process.env.NODE_ENV === 'development') {
       return callback(null, true);
     }
@@ -55,12 +54,9 @@ app.use(express.json());
 // Routes
 app.use('/api', apiRoutes);
 
-// Root endpoint
 app.get('/', (req: Request, res: Response) => {
   res.send('GeoAttendance API Gateway is running.');
 });
-
-// Error handling
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   console.error('[SERVER ERROR]', err);
   res.status(500).json({ error: 'Internal Server Error', message: err.message });

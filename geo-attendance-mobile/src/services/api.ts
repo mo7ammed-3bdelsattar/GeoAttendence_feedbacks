@@ -14,16 +14,11 @@ const getBaseUrl = () => {
   
   console.log(`[API] Platform detected: ${platform}`);
   
-  // 1. For Web testing on PC
   if (platform === 'web') {
     return 'http://localhost:5000/api';
   }
   
-  // 2. For Android Emulator
-  // @ts-ignore
   const isEmulator = !Platform.isTesting && (platform === 'android' && !process.env.JEST_WORKER_ID);
-  // Note: Detecting emulator accurately without 'expo-device' is tricky, 
-  // but usually if we are native and not web, we want the network IP.
   
   if (envUrl && !envUrl.includes('localhost')) return envUrl;
   
@@ -97,7 +92,6 @@ export interface Course {
 export const authApi = {
   async login(email: string, password: string): Promise<{ user: any; token: string }> {
     try {
-      // 1. Try Firebase Authentication first
       console.log('[AUTH] Attempting Firebase login...');
       const userCredential = await signInWithEmailAndPassword(clientAuth, email, password);
       const idToken = await userCredential.user.getIdToken();
@@ -117,7 +111,6 @@ export const authApi = {
         token: userData.token || idToken
       };
     } catch (error: any) {
-      // 2. Fallback to Backend Authentication (for admin/mock accounts)
       console.log('[AUTH] Firebase failed, trying backend fallback...', error.message);
       if (error.message === 'Network Error') {
         console.warn('[NETWORK ERROR] The app cannot reach the server.');
@@ -448,7 +441,6 @@ export const userApi = {
     const uriParts = fileUri.split('.');
     const fileType = uriParts[uriParts.length - 1];
 
-    // @ts-ignore
     formData.append('avatar', {
       uri: fileUri,
       name: `photo.${fileType}`,

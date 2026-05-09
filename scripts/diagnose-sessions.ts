@@ -1,11 +1,10 @@
-import { db } from '../server/config/firebase-admin';
+import { db } from '../server/config/firebase-admin.ts';
 
 async function diagnose() {
     try {
         const today = new Date().toISOString().split('T')[0];
         console.log(`Diagnosing for date: ${today}`);
         
-        // 1. Get sessions today
         const sessionsToday = await db.collection('sessions').where('date', '==', today).get();
         console.log(`Found ${sessionsToday.size} sessions today.`);
         
@@ -13,7 +12,6 @@ async function diagnose() {
             const sess = sessDoc.data();
             console.log(`\nSession: ${sessDoc.id} | Course: ${sess.courseId} | Status: ${sess.status}`);
             
-            // 2. Get enrollments for this course
             const enrs = await db.collection('enrollments').where('courseId', '==', sess.courseId).get();
             console.log(`  Enrollments for this course (camelCase): ${enrs.size}`);
             
@@ -27,7 +25,6 @@ async function diagnose() {
                 const studentId = enr.studentId || enr.student_id;
                 console.log(`    Enrolled Student: ${studentId}`);
                 
-                // 3. Check if student exists
                 const userDoc = await db.collection('users').doc(studentId).get();
                 if (userDoc.exists) {
                     console.log(`      User Name: ${userDoc.data()?.name} | Email: ${userDoc.data()?.email}`);
@@ -36,7 +33,6 @@ async function diagnose() {
                 }
             }
         }
-        // 5. Check for snake_case sessions
         const snakeSess = await db.collection('sessions').where('course_id', '>', '').get();
         console.log(`\nFound ${snakeSess.size} sessions with 'course_id' (snake_case).`);
         if (snakeSess.size > 0) {

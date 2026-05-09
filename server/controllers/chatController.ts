@@ -1,11 +1,6 @@
 import { Request, Response } from 'express';
 import { db } from '../config/firebase-admin';
 
-/**
- * Chat Controller
- * Handles student <-> admin chat threads
- */
-
 export const getMyChats = async (req: Request, res: Response) => {
   try {
     const { userId, role } = req.query;
@@ -46,7 +41,7 @@ export const sendMessage = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'studentId, senderId, and text are required' });
     }
 
-    const chatId = studentId; // One thread per student
+    const chatId = studentId; 
     const chatRef = db.collection('chats').doc(chatId);
     
     const message = {

@@ -1,4 +1,3 @@
-// Mock file to resolve accidental react-native imports in web project
 export default {};
 export const Platform = {
   OS: 'web',

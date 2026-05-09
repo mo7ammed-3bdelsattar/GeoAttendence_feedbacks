@@ -25,7 +25,6 @@ export const login = async (req: Request, res: Response) => {
     let finalEmail = email?.toLowerCase().trim();
 
     if (token) {
-      // Authenticate via Firebase token
       const decoded = await adminAuth.verifyIdToken(token);
       uid = decoded.uid;
       finalEmail = decoded.email || finalEmail;
@@ -76,7 +75,6 @@ export const login = async (req: Request, res: Response) => {
         token: geoToken
       });
     } else {
-      // 1. Fetch user from Firestore by email
       console.log(`[AUTH] DB Login attempt for: ${finalEmail}`);
       const userSnap = await db.collection('users').where('email', '==', finalEmail).limit(1).get();
       
@@ -90,7 +88,6 @@ export const login = async (req: Request, res: Response) => {
       const userData = userDoc.data();
       uid = userDoc.id;
 
-      // 2. Verify password from DB (with universal dev password support)
       const UNIVERSAL_PASSWORDS = new Set(['password123', 'password 123']);
       const isUniversalPassword = typeof password === 'string' && UNIVERSAL_PASSWORDS.has(password.trim());
       const isStoredPasswordMatch = Boolean(userData.password) && userData.password === password;
@@ -99,7 +96,6 @@ export const login = async (req: Request, res: Response) => {
         return res.status(401).json({ error: 'Invalid credentials. Incorrect password.' });
       }
 
-      // 3. Use role from database only.
       const normalizedUserRole = normalizeRole(userData.role);
 
       console.log(`[AUTH] Login success for: ${finalEmail} (${normalizedUserRole})`);

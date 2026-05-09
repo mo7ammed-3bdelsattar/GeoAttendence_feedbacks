@@ -1,7 +1,7 @@
 import admin from 'firebase-admin';
 import { config } from 'dotenv';
 import { resolve, dirname } from 'path';
-import { existsSync } from 'fs';
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -9,7 +9,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 config();
 
 function getCredential() {
-  // 1. Prioritize individual environment variables (Best for Render/Vercel)
   const inlineConfig = {
     projectId: process.env.FIREBASE_PROJECT_ID,
     clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
@@ -21,7 +20,6 @@ function getCredential() {
     return admin.credential.cert(inlineConfig as admin.ServiceAccount);
   }
 
-  // 2. Fallback to Service Account JSON file (Best for Local Development)
   const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './service-account.json';
   const possiblePaths = [
     resolve(process.cwd(), serviceAccountPath),
@@ -42,7 +40,6 @@ function getCredential() {
 
 
 try {
-  // Check if already initialized to prevent errors
   if (!admin.apps.length) {
     const bucketName = process.env.FIREBASE_STORAGE_BUCKET || `${process.env.FIREBASE_PROJECT_ID || 'geo2-626eb'}.appspot.com`;
     

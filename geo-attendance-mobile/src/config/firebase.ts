@@ -13,12 +13,9 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase app (singleton)
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Auth with React Native AsyncStorage persistence
-const auth =out persistence (temporary fix)
-const auth = getAuth(app
+const auth = getAuth(app);
 export { auth };
 export const db = getFirestore(app);
 export default app;

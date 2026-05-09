@@ -1,5 +1,5 @@
 import https from 'https';
-import mockdate from 'mockdate';
+import mockdate from 'mockdate.ts';
 
 https.get('https://www.googleapis.com', (res) => {
   const dateHeader = res.headers.date;
@@ -12,7 +12,6 @@ https.get('https://www.googleapis.com', (res) => {
     console.log(`Local Time: ${new Date(localTime).toISOString()}`);
     console.log(`Offset: ${offset}ms`);
     
-    // Apply the offset
     const OriginalDate = Date;
     global.Date = class extends OriginalDate {
       constructor(...args: any[]) {
@@ -27,7 +26,6 @@ https.get('https://www.googleapis.com', (res) => {
       }
     } as any;
     
-    // Now trigger firestore
     setTimeout(async () => {
       try {
         const { db } = await import('../server/config/firebase-admin.ts');

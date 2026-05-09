@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { db } from '../config/firebase-admin';
 
 // Mock users for testing - no Firestore needed
-const MOCK_USERS = [
+export const MOCK_USERS = [
   {
     id: 'admin-1',
     name: 'أحمد أيمن',
@@ -42,7 +42,6 @@ export const loginMock = async (req: Request, res: Response) => {
     const normalizedEmail = String(email || '').toLowerCase().trim();
     const isUniversalPassword = typeof password === 'string' && UNIVERSAL_PASSWORDS.has(password.trim());
 
-    // 1) Prefer real DB user by email (so role is always accurate)
     let dbFallbackFailed = false;
     try {
       const dbUserSnap = await db.collection('users').where('email', '==', normalizedEmail).limit(1).get();
@@ -80,7 +79,6 @@ export const loginMock = async (req: Request, res: Response) => {
       dbFallbackFailed = true;
     }
 
-    // 2) Fallback to hardcoded mock users
     const user = MOCK_USERS.find(
       u => u.email.toLowerCase() === normalizedEmail
     );
@@ -91,7 +89,6 @@ export const loginMock = async (req: Request, res: Response) => {
         return res.status(401).json({ error: 'Invalid credentials.' });
       }
 
-      // Dev fallback: allow unknown emails with universal password.
       const role = normalizeRoleFromEmail(normalizedEmail);
       const id = `dev-${normalizedEmail.replace(/[^a-z0-9]/g, '-')}`;
       const name = normalizedEmail.split('@')[0] || 'User';
@@ -113,13 +110,11 @@ export const loginMock = async (req: Request, res: Response) => {
       });
     }
 
-    // Verify password
     if (user.password !== password && !isUniversalPassword) {
       console.log(`[AUTH MOCK] Invalid password for: ${email}`);
       return res.status(401).json({ error: 'Invalid credentials.' });
     }
 
-    // Generate mock token
     const geoToken = `geo-${Buffer.from(
       JSON.stringify({ 
         sub: user.id, 

@@ -103,18 +103,15 @@ export const markAttendance = async (req: Request, res: Response) => {
       timestamp: now.toISOString()
     };
 
-    // Use a batch to update both root and session-specific records
     const batch = db.batch();
     
-    // 1. Add to root attendance collection
     const rootRef = db.collection('attendance').doc();
     batch.set(rootRef, attendance);
 
-    // 2. Add/Update session-specific attendanceRecords
     const sessionRecordRef = db.collection('sessions').doc(sessionId).collection('attendanceRecords').doc(studentId);
     batch.set(sessionRecordRef, {
         studentId,
-        studentName: 'Unknown', // Will be enriched later if needed
+        studentName: 'Unknown', 
         checkInAt: attendance.timestamp,
         gpsCoords: { lat: latitude, lng: longitude },
         status: 'PRESENT'
@@ -183,7 +180,6 @@ export const getAttendanceByFaculty = async (req: Request, res: Response) => {
           db.collection('enrollments').where('courseId', '==', session.courseId).get()
         ]);
         
-        // Use a Set to ensure we only count unique students as present
         const uniquePresentStudents = new Set(presentSnap.docs.map(doc => doc.data().studentId));
         const presentCount = uniquePresentStudents.size;
         const enrolledCount = enrollmentSnap.size;

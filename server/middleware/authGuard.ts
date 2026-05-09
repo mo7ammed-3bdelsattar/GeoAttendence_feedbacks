@@ -10,7 +10,6 @@ type AuthUser = {
 async function decodeToken(token: string): Promise<AuthUser | null> {
   if (!token) return null;
 
-  // 1. Handle Legacy/Mock Tokens
   if (token.startsWith('geo-')) {
     const payloadToken = token.slice(4).split('.')[0];
     if (!payloadToken) return null;
@@ -27,7 +26,6 @@ async function decodeToken(token: string): Promise<AuthUser | null> {
     }
   }
 
-  // 2. Handle Real Firebase Tokens
   try {
     const decoded = await adminAuth.verifyIdToken(token);
     let user: AuthUser = {
@@ -36,7 +34,6 @@ async function decodeToken(token: string): Promise<AuthUser | null> {
       role: decoded.role as string,
     };
 
-    // 3. Fallback: If role is missing from token, sync from Firestore
     if (!user.role) {
         const userDoc = await db.collection('users').doc(decoded.uid).get();
         if (userDoc.exists) {

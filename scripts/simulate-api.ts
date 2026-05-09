@@ -1,8 +1,8 @@
-import { db } from '../server/config/firebase-admin';
+import { db } from '../server/config/firebase-admin.ts';
 
 async function simulate() {
     try {
-        const studentId = 's1a9MGqq0sULcwZq11mkFXRH31m1'; // The one from my diagnosis
+        const studentId = 's1a9MGqq0sULcwZq11mkFXRH31m1'; 
         console.log(`Simulating getSessionsByStudent for: ${studentId}`);
         
         const enrollments = await db.collection('enrollments').where('studentId', '==', studentId).get();

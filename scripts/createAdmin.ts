@@ -1,4 +1,4 @@
-import { auth, db } from '../server/config/firebase-admin';
+import { auth, db } from '../server/config/firebase-admin.ts';
 
 async function createAdmin() {
   try {

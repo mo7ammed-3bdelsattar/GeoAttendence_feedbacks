@@ -3,13 +3,9 @@ import * as admin from 'firebase-admin';
 import express from 'express';
 import cors from 'cors';
 
-// Initialize Firebase Admin
 admin.initializeApp();
 
-// Create Express app
 const app = express();
-
-// CORS Configuration
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
@@ -34,10 +30,6 @@ app.use(cors({
 
 app.use(express.json());
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Authentication Middleware
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
 const verifyAuth = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const token = req.headers.authorization?.replace('Bearer ', '');
   
@@ -54,24 +46,15 @@ const verifyAuth = async (req: express.Request, res: express.Response, next: exp
   }
 };
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Health Check
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
 app.get('/health', (req, res) => {
   res.json({ status: 'healthy', timestamp: new Date(), version: '1.0.0' });
 });
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Auth Routes
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 app.post('/auth/login', async (req, res) => {
   try {
     const { token } = req.body;
     const decodedToken = await admin.auth().verifyIdToken(token);
     
-    // Get or create user in Firestore
     const userRef = admin.firestore().collection('users').doc(decodedToken.uid);
     const userSnap = await userRef.get();
     
@@ -79,7 +62,7 @@ app.post('/auth/login', async (req, res) => {
       await userRef.set({
         email: decodedToken.email,
         name: decodedToken.name || 'User',
-        role: 'student', // Default role
+        role: 'student',
         createdAt: new Date(),
         lastLogin: new Date(),
       });
@@ -101,10 +84,6 @@ app.post('/auth/login', async (req, res) => {
   }
 });
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Attendance Routes
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
 app.post('/attendance/mark', verifyAuth, async (req, res) => {
   try {
     const { sessionId, latitude, longitude } = req.body;
@@ -114,7 +93,6 @@ app.post('/attendance/mark', verifyAuth, async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
     
-    // Validate geofence (mock implementation)
     const isWithinGeofence = Math.abs(latitude) > 0 && Math.abs(longitude) > 0;
     
     if (!isWithinGeofence) {
@@ -167,9 +145,6 @@ app.get('/attendance/records', verifyAuth, async (req, res) => {
   }
 });
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Feedback Routes
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 app.post('/feedback/submit', verifyAuth, async (req, res) => {
   try {
@@ -184,7 +159,6 @@ app.post('/feedback/submit', verifyAuth, async (req, res) => {
       rating,
       comment: comment || '',
       timestamp: new Date(),
-      // Don't store userId for anonymity
     };
     
     const docRef = await admin.firestore()
@@ -229,10 +203,6 @@ app.get('/feedback/lecture/:lectureId', verifyAuth, async (req, res) => {
   }
 });
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Notifications Routes
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
 app.post('/notifications/send', verifyAuth, async (req, res) => {
   try {
     const { topic, title, body } = req.body;
@@ -257,10 +227,6 @@ app.post('/notifications/send', verifyAuth, async (req, res) => {
   }
 });
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Dashboard Routes
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
 app.get('/dashboard/stats', verifyAuth, async (req, res) => {
   try {
     const userRole = (req as any).user.custom_claims?.role;
@@ -283,19 +249,6 @@ app.get('/dashboard/stats', verifyAuth, async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch stats', message: error.message });
   }
 });
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Error Handling
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('[ERROR]', err);
-  res.status(500).json({ error: 'Internal Server Error', message: err.message });
-});
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// Export Functions
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 exports.api = functions
   .region('us-central1')

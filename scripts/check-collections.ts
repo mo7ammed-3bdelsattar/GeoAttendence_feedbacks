@@ -1,4 +1,4 @@
-import { db } from '../server/config/firebase-admin';
+import { db } from '../server/config/firebase-admin.ts';
 
 async function check() {
     try {

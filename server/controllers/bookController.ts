@@ -1,11 +1,6 @@
 import { Request, Response } from 'express';
 import { db } from '../config/firebase-admin';
 
-/**
- * Book Controller
- * Handles book library management and transactions
- */
-
 export const getBooks = async (req: Request, res: Response) => {
   try {
     const snapshot = await db.collection('books').get();
@@ -14,7 +9,6 @@ export const getBooks = async (req: Request, res: Response) => {
       ...doc.data()
     }));
 
-    // If no books in DB, return hardcoded initial ones (optional)
     if (books.length === 0) {
         return res.json(INITIAL_BOOKS);
     }
@@ -58,7 +52,6 @@ export const deleteBook = async (req: Request, res: Response) => {
   }
 };
 
-// --- Mock Data for Initial Setup ---
 const INITIAL_BOOKS = [
   {
     id: 'b1',

@@ -2,13 +2,7 @@ import { Request, Response } from 'express';
 import { db } from '../config/firebase-admin';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || '');
-
-/**
- * Chatbot Controller
- * Handles student queries based on uploaded policy documents using Gemini.
- */
 export const askChatbot = async (req: Request, res: Response) => {
   try {
     const { query } = req.body;
@@ -18,8 +12,6 @@ export const askChatbot = async (req: Request, res: Response) => {
 
     const snapshot = await db.collection('policies').get();
     const policies = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
-
-    // Prepare context from policies
     const context = policies.map(p => `Policy: ${p.title}\nContent: ${p.content}`).join('\n\n');
 
     if (process.env.GOOGLE_GEMINI_API_KEY) {
@@ -67,14 +59,12 @@ export const askChatbot = async (req: Request, res: Response) => {
         });
       } catch (geminiError: any) {
         console.error('[Gemini API Error]', geminiError.message);
-        // If 404, we continue to fallback logic below
         if (geminiError.status !== 404) {
            return res.status(500).json({ success: false, error: geminiError.message });
         }
       }
     }
 
-    // --- FALLBACK (Basic Matching) ---
     const lowerQuery = query.toLowerCase();
     const greetings = ['hi', 'hello', 'hey', 'سلام', 'هلا', 'صباح الخير', 'مرحبا'];
     
@@ -117,9 +107,6 @@ export const askChatbot = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * Admin: Upload or update policy document
- */
 export const upsertPolicy = async (req: Request, res: Response) => {
   try {
     const { id, title, content, keywords } = req.body;
@@ -149,9 +136,6 @@ export const upsertPolicy = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * Admin: Get all policies
- */
 export const getPolicies = async (req: Request, res: Response) => {
   try {
     const snapshot = await db.collection('policies').orderBy('updatedAt', 'desc').get();
@@ -162,9 +146,6 @@ export const getPolicies = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * Admin: Delete policy
- */
 export const deletePolicy = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
