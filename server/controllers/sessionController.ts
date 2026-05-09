@@ -287,15 +287,23 @@ export async function generateAttendanceSummary(sessionId: string) {
     })
   );
 
+  // 2.b Get records from subcollection as a fallback source of truth
+  const subcollectionSnap = await sessionRef.collection('attendanceRecords').get();
+  const subcollectionByStudent = Object.fromEntries(
+    subcollectionSnap.docs.map(doc => [doc.id, doc.data()])
+  );
+
   // 3. Process each enrolled student
   const students = await Promise.all(studentIds.map(async (studentId) => {
       const userSnap = await db.collection('users').doc(studentId).get();
       const userData = userSnap.data();
       const studentName = userData?.name || userData?.email || 'Unknown Student';
       
-      const record = attendanceByStudent[studentId];
-      const checkInAt = record?.timestamp || record?.checkInAt || null;
-      const checkOutAt = record?.checkOutAt || null;
+      const rootRecord = attendanceByStudent[studentId];
+      const subRecord = subcollectionByStudent[studentId];
+      
+      const checkInAt = subRecord?.checkInAt || rootRecord?.timestamp || rootRecord?.checkInAt || null;
+      const checkOutAt = subRecord?.checkOutAt || rootRecord?.checkOutAt || null;
       
       // Determine status
       let status = 'ABSENT';
@@ -332,9 +340,6 @@ export const getSessionSummary = async (req: Request, res: Response) => {
   try {
     const { sessionId } = req.params;
     const sessionRef = db.collection('sessions').doc(sessionId);
-    const summarySnap = await sessionRef.collection('attendanceSummary').doc('summary').get();
-    
-    if (summarySnap.exists) return res.json(summarySnap.data());
 
     const sessionSnap = await sessionRef.get();
     if (!sessionSnap.exists) return res.status(404).json({ error: 'Session not found.' });
