@@ -1,4 +1,5 @@
 # Logs
+.env
 **/.env
 logs
 *.log
@@ -25,6 +26,7 @@ dist-ssr
 *.sln
 *.sw?
 
+src/assets/service-account.json
 src/.env
 
 # Local node distributions and secrets
