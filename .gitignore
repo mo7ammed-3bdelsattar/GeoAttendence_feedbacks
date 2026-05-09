@@ -35,3 +35,6 @@ src/.env
 service-account.json
 tmp-node-tar/
 .vercel
+
+# Local Uploads
+server/uploads/

@@ -25,9 +25,20 @@ import multer from 'multer';
 const router = Router();
 const USE_MOCK_AUTH = process.env.USE_MOCK_AUTH === 'true';
 
-// Multer config for file uploads
+// Multer config for local file uploads
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, 'server/uploads/avatars');
+  },
+  filename: (_req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const ext = file.originalname.split('.').pop();
+    cb(null, `avatar-${uniqueSuffix}.${ext}`);
+  }
+});
+
 const upload = multer({
-  storage: multer.memoryStorage(),
+  storage: storage,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },

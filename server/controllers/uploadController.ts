@@ -1,7 +1,18 @@
 import { Request, Response } from 'express';
-import { storage } from '../config/firebase-admin';
 import { getAuthenticatedUser } from '../middleware/authGuard';
-import { v4 as uuidv4 } from 'uuid';
+import os from 'os';
+
+const getLocalIP = () => {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]!) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return 'localhost';
+};
 
 export const uploadImage = async (req: Request, res: Response) => {
   try {
@@ -14,63 +25,17 @@ export const uploadImage = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const file = req.file;
-    const bucket = storage.bucket();
+    const PORT = process.env.PORT || 5000;
+    const localIP = getLocalIP();
     
-    console.log(`[UPLOAD] Checking bucket: ${bucket.name}`);
-    
-    // Check if bucket exists first
-    const [exists] = await bucket.exists();
-    if (!exists) {
-      console.error(`[UPLOAD] CRITICAL: Bucket '${bucket.name}' does not exist!`);
-      return res.status(404).json({ 
-        error: `Storage bucket '${bucket.name}' not found.`,
-        details: 'Ensure you have clicked \"Get Started\" in the Storage tab of your Firebase Console.' 
-      });
-    }
-    
-    const extension = file.originalname.split('.').pop();
-    const fileName = `avatars/${authUser.uid}-${uuidv4()}.${extension}`;
-    const blob = bucket.file(fileName);
+    // Construct local URL
+    // We serve the 'server/uploads' folder as '/uploads' static route
+    const imageUrl = `http://${localIP}:${PORT}/uploads/avatars/${req.file.filename}`;
 
-    const blobStream = blob.createWriteStream({
-      metadata: {
-        contentType: file.mimetype,
-      },
-      resumable: false,
-    });
+    console.log(`[UPLOAD] File saved locally: ${req.file.filename}`);
+    console.log(`[UPLOAD] Accessible at: ${imageUrl}`);
 
-    blobStream.on('error', (err: any) => {
-      console.error('[UPLOAD] Blob stream error:', err);
-      if (err.code === 404) {
-        res.status(404).json({ 
-          error: 'Storage bucket not found. Please check your FIREBASE_STORAGE_BUCKET configuration.',
-          details: err.message
-        });
-      } else {
-        res.status(500).json({ error: 'Failed to upload to storage', details: err.message });
-      }
-    });
-
-    blobStream.on('finish', async () => {
-      // Make the file public or get a signed URL
-      // For simplicity in this project, we'll use a public URL if the bucket allows it, 
-      // or a long-lived signed URL.
-      try {
-        await blob.makePublic();
-        const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
-        res.json({ url: publicUrl });
-      } catch (publicError) {
-        // If makePublic fails (e.g. lack of permissions), use signed URL
-        const [signedUrl] = await blob.getSignedUrl({
-          action: 'read',
-          expires: '03-01-2500', // Very long lived
-        });
-        res.json({ url: signedUrl });
-      }
-    });
-
-    blobStream.end(file.buffer);
+    res.json({ url: imageUrl });
   } catch (error: any) {
     console.error('[UPLOAD] Error:', error);
     res.status(500).json({ error: error.message });

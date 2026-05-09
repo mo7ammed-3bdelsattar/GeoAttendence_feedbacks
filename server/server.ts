@@ -3,6 +3,11 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import apiRoutes from './routes/apiRoutes';
 import { initNotificationCron } from './utils/notificationCron';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
@@ -10,6 +15,9 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
+// Serve static files from 'server/uploads'
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 const envOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()) ?? [];
 const allowedOrigins = [
   'http://localhost:5173',

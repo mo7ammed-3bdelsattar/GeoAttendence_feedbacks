@@ -17,6 +17,8 @@ const allowedOrigins = [
   'https://geo-attendence-feedbacks.vercel.app',
   'https://geo-attendance.vercel.app',
   'https://geo-attendence-feedbacks-msk0dp79a.vercel.app',
+  'https://geo2-626eb.web.app',
+  'https://geo2-626eb.firebaseapp.com',
 ];
 
 app.use(cors({
