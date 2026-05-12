@@ -167,7 +167,7 @@ router.get('/student/courses/:studentId', getStudentCourses);
 router.get('/student/dashboard/:studentId', getStudentDashboard);
 
 // Chatbot routes
-router.post('/chatbot/ask', chatbotController.askChatbot);
+router.post('/chatbot/ask', requireRole(['admin', 'faculty', 'student']), chatbotController.askChatbot);
 router.get('/admin/policies', requireRole('admin'), chatbotController.getPolicies);
 router.post('/admin/policies', requireRole('admin'), chatbotController.upsertPolicy);
 router.delete('/admin/policies/:id', requireRole('admin'), chatbotController.deletePolicy);

@@ -11,15 +11,17 @@ const WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 export const askChatbot = async (req: Request, res: Response) => {
   try {
-    // 1. Enforce Rate Limit
-    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    // 1. Enforce Rate Limit (Per User if authenticated, else Per IP)
+    const currentUser = (req as any).currentUser;
+    const limitKey = currentUser?.uid || req.ip || req.socket.remoteAddress || 'unknown';
+    
     const now = Date.now();
-    const record = rateLimitMap.get(ip);
+    const record = rateLimitMap.get(limitKey);
     
     if (record) {
       if (now > record.resetTime) {
         // Reset after 24 hours
-        rateLimitMap.set(ip, { count: 1, resetTime: now + WINDOW_MS });
+        rateLimitMap.set(limitKey, { count: 1, resetTime: now + WINDOW_MS });
       } else if (record.count >= DAILY_LIMIT) {
         return res.status(429).json({ 
           success: false, 
@@ -30,7 +32,7 @@ export const askChatbot = async (req: Request, res: Response) => {
         record.count++;
       }
     } else {
-      rateLimitMap.set(ip, { count: 1, resetTime: now + WINDOW_MS });
+      rateLimitMap.set(limitKey, { count: 1, resetTime: now + WINDOW_MS });
     }
 
     const { query } = req.body;
@@ -50,23 +52,17 @@ export const askChatbot = async (req: Request, res: Response) => {
           You are "Absattar" (عبستار), a friendly and helpful AI assistant for the GeoAttendance system.
 
           RULES:
-          1. Start by being polite and helpful. If the user says "hi" or greets you, respond warmly as Absattar.
-          2. STRICT SCOPE: You are ONLY allowed to answer questions related to the university, attendance policies, rules, grading, or the GeoAttendance system.
-          3. OUT OF SCOPE QUESTIONS: If the user asks about ANYTHING outside of this scope (e.g., general knowledge, programming, history, jokes, unrelated topics), you MUST refuse to answer and say exactly:
-             - Arabic: "عذراً، أنا مقدرش أساعدك في الموضوع ده. يرجى التوجه لإدارة الكلية أو سؤالي عن سياسات الحضور والغياب فقط."
-             - English: "Sorry, I cannot help you with that. Please contact the college administration or ask me about attendance policies."
-          4. If a question IS about university regulations but is NOT covered in the policies, politely say:
-             - Arabic: "آسف، معنديش معلومات عن السياسة دي دلوقتي. تواصل مع الإدارة وهيساعدوك إن شاء الله!"
-             - English: "I'm sorry, I don't have information on this specific policy yet. Please contact the administration for help."
-          5. Do NOT make up rules that are not in the policies.
-          6. You can answer general questions about yourself (e.g., "who are you?") by saying you are the GeoAttendance assistant named Absattar.
+          1. GREETINGS: If the user greets you (e.g., "hi", "سلام", "صباح الخير"), respond warmly as Absattar FIRST, then proceed to answer their question if they asked one.
+          2. SCOPE: You answer questions about university policies, attendance rules, grading, or the GeoAttendance system.
+          3. MATCHING: If the question is related to the provided policies or university life in general, answer it using the context provided.
+          4. FALLBACK: If the user asks something outside of your scope, or if you don't have enough information in the policies to answer, you MUST say:
+             - Arabic: "عذراً، أنا معنديش معلومات كافية عن سؤالك ده حالياً. يفضل ترجع لإدارة الكلية أو الدكتور بتاعك عشان يفيدك أكتر."
+             - English: "I'm sorry, I don't have enough information about your question right now. It's best to check with the college administration or your professor for more details."
+          5. TONE: Be natural and student-friendly.
           
-          LANGUAGE DETECTION & RESPONSE RULES:
-          6. AUTOMATICALLY detect the language of the user's message:
-             - If the user writes in Arabic → respond in Egyptian Arabic (العامية المصرية البيضاء), friendly and natural, like you're talking to a university student.
-             - If the user writes in English → respond in English, friendly and natural.
-          7. NEVER mix languages in the same response unless the user themselves mixed them.
-          8. Egyptian Arabic tone tips: use words like "يسطا، يعني، طب، خليني أوضحلك، إن شاء الله، تمام؟" to sound natural — but keep it clean and professional.
+          LANGUAGE RULES:
+          6. Respond in the SAME language as the user.
+          7. If Arabic, use friendly Egyptian Arabic (عامية مصرية بيضاء).
 
           POLICIES CONTEXT:
           ${context}
@@ -103,7 +99,7 @@ export const askChatbot = async (req: Request, res: Response) => {
       return res.json({
         success: true,
         data: {
-          response: "أهلاً بك! أنا عبستار (Absattar)، مساعدك الذكي في نظام GeoAttendance. كيف يمكنني مساعدتك اليوم؟"
+          response: "أهلاً بك! أنا عبستار (Absattar)، مساعدك الذكي في نظام GeoAttendance. كيف يمكنني مساعدتك اليوم؟ تقدر تسألني عن أي حاجة تخص الكلية أو نظام الحضور."
         },
         message: "Fallback greeting"
       });
@@ -127,7 +123,7 @@ export const askChatbot = async (req: Request, res: Response) => {
     return res.json({
       success: true,
       data: {
-        response: bestMatch ? bestMatch.content : "I'm sorry, I don't have information on this specific policy yet. Please contact the administration for help."
+        response: bestMatch ? bestMatch.content : "عذراً، أنا معنديش معلومات كافية عن سؤالك ده حالياً. يفضل ترجع لإدارة الكلية أو الدكتور بتاعك عشان يفيدك أكتر."
       },
       message: "Fallback response"
     });
