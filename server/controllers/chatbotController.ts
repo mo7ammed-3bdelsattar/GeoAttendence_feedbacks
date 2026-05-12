@@ -3,8 +3,36 @@ import { db } from '../config/firebase-admin';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || '');
+
+// In-memory rate limiter map: IP -> { count, resetTime }
+const rateLimitMap = new Map<string, { count: number, resetTime: number }>();
+const DAILY_LIMIT = 5;
+const WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
+
 export const askChatbot = async (req: Request, res: Response) => {
   try {
+    // 1. Enforce Rate Limit
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const now = Date.now();
+    const record = rateLimitMap.get(ip);
+    
+    if (record) {
+      if (now > record.resetTime) {
+        // Reset after 24 hours
+        rateLimitMap.set(ip, { count: 1, resetTime: now + WINDOW_MS });
+      } else if (record.count >= DAILY_LIMIT) {
+        return res.status(429).json({ 
+          success: false, 
+          message: 'لقد استنفدت الحد اليومي (5 رسائل). يرجى المحاولة غداً.',
+          error: 'Daily limit exceeded' 
+        });
+      } else {
+        record.count++;
+      }
+    } else {
+      rateLimitMap.set(ip, { count: 1, resetTime: now + WINDOW_MS });
+    }
+
     const { query } = req.body;
     if (!query) {
       return res.status(400).json({ success: false, message: 'Query is required.' });
