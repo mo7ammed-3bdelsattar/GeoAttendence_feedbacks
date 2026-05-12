@@ -29,14 +29,15 @@ export const uploadImage = async (req: Request, res: Response) => {
 
     console.log(`[UPLOAD] Processing file for user ${authUser.uid}:`, req.file.originalname);
 
-    const PORT = process.env.PORT || 5000;
-    const localIP = getLocalIP();
+    // Dynamic URL generation based on the request
+    const protocol = req.protocol;
+    const host = req.get('host');
     
-    // Construct local URL
-    // We serve the 'server/uploads' folder as '/uploads' static route
-    const imageUrl = `http://${localIP}:${PORT}/uploads/avatars/${req.file.filename}`;
+    // Construct URL that matches the current access method (supports HTTPS automatically)
+    const imageUrl = `${protocol}://${host}/uploads/avatars/${req.file.filename}`;
 
     console.log(`[UPLOAD] File saved: ${req.file.filename}`);
+    console.log(`[UPLOAD] Public URL: ${imageUrl}`);
     
     res.json({ url: imageUrl });
   } catch (error: any) {

@@ -22,6 +22,8 @@ if (!fs.existsSync(uploadDir)) {
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+app.set('trust proxy', true);
+
 // Middleware
 // Serve static files from 'server/uploads'
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
