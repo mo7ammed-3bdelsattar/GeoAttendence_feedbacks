@@ -1,5 +1,5 @@
 import { Bot, X } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAiChatStore } from '../../stores/aiChatStore.ts';
 
 export function AiChatWidget() {
@@ -11,6 +11,35 @@ export function AiChatWidget() {
   const closeWidget = useAiChatStore((s) => s.closeWidget);
   const setInput = useAiChatStore((s) => s.setInput);
   const send = useAiChatStore((s) => s.send);
+
+  const [messageCount, setMessageCount] = useState(0);
+  const DAILY_LIMIT = 5;
+
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const storedData = localStorage.getItem('chatbot_usage');
+    if (storedData) {
+      try {
+        const { date, count } = JSON.parse(storedData);
+        if (date === today) {
+          setMessageCount(count);
+        } else {
+          localStorage.setItem('chatbot_usage', JSON.stringify({ date: today, count: 0 }));
+        }
+      } catch(e) {}
+    } else {
+      localStorage.setItem('chatbot_usage', JSON.stringify({ date: today, count: 0 }));
+    }
+  }, [open]);
+
+  const handleSend = async () => {
+    if (messageCount >= DAILY_LIMIT) return;
+    await send();
+    const newCount = messageCount + 1;
+    setMessageCount(newCount);
+    const today = new Date().toISOString().split('T')[0];
+    localStorage.setItem('chatbot_usage', JSON.stringify({ date: today, count: newCount }));
+  };
 
   const endRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -74,20 +103,26 @@ export function AiChatWidget() {
           </div>
 
           <div className="p-3 border-t border-slate-200 bg-white">
+            {messageCount >= DAILY_LIMIT && (
+              <div className="mb-2 text-center text-[11px] text-red-500 font-medium">
+                Daily limit of {DAILY_LIMIT} messages reached.
+              </div>
+            )}
             <div className="flex gap-2">
               <input
-                className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-slate-400"
-                placeholder="اكتب رسالتك…"
+                className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-slate-400 disabled:bg-slate-50 disabled:text-slate-400"
+                placeholder={messageCount >= DAILY_LIMIT ? "Limit reached" : "اكتب رسالتك…"}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
+                disabled={messageCount >= DAILY_LIMIT}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') send();
+                  if (e.key === 'Enter') handleSend();
                 }}
               />
               <button
-                className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
-                onClick={send}
-                disabled={sending || input.trim().length === 0}
+                className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handleSend}
+                disabled={sending || input.trim().length === 0 || messageCount >= DAILY_LIMIT}
               >
                 Send
               </button>
