@@ -10,7 +10,7 @@ on:
 
 env:
   NODE_VERSION: '18'
-  PROJECT_ID: 'geo-attendance-6e1a4'
+  PROJECT_ID: 'geo2-626eb'
 
 jobs:
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

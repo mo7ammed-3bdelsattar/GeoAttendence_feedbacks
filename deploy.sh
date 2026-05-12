@@ -6,7 +6,7 @@
 set -e
 
 ENVIRONMENT=${1:-production}
-PROJECT_ID="geo-attendance-6e1a4"
+PROJECT_ID="geo2-626eb"
 FUNCTIONS_REGION="us-central1"
 
 echo "================================"
