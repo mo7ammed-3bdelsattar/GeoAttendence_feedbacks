@@ -29,15 +29,25 @@ export const uploadImage = async (req: Request, res: Response) => {
 
     console.log(`[UPLOAD] Processing file for user ${authUser.uid}:`, req.file.originalname);
 
-    // Dynamic URL generation based on the request
-    const protocol = req.protocol;
-    const host = req.get('host');
+    // Robust URL generation for production (Railway/Render/etc.)
+    // 1. Check for X-Forwarded headers (set by proxies/load balancers)
+    // 2. Fallback to req.protocol/host (standard Express)
+    // 3. Optional: Use a PUBLIC_URL environment variable if set
     
-    // Construct URL that matches the current access method (supports HTTPS automatically)
-    const imageUrl = `${protocol}://${host}/uploads/avatars/${req.file.filename}`;
+    const protocol = (req.headers['x-forwarded-proto'] as string) || req.protocol || 'http';
+    const host = (req.headers['x-forwarded-host'] as string) || req.get('host');
+    
+    let baseUrl = `${protocol}://${host}`;
+    
+    // If we have a PUBLIC_URL set in environment, prioritize it
+    if (process.env.PUBLIC_URL) {
+      baseUrl = process.env.PUBLIC_URL.replace(/\/$/, '');
+    }
+
+    const imageUrl = `${baseUrl}/uploads/avatars/${req.file.filename}`;
 
     console.log(`[UPLOAD] File saved: ${req.file.filename}`);
-    console.log(`[UPLOAD] Public URL: ${imageUrl}`);
+    console.log(`[UPLOAD] Generated URL: ${imageUrl}`);
     
     res.json({ url: imageUrl });
   } catch (error: any) {
