@@ -4,8 +4,10 @@ import Colors from '../theme/colors';
 import Typography from '../theme/typography';
 import { chatbotApi } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '../context/AuthContext';
 
 const StudentChatbotScreen: React.FC = () => {
+  const { user } = useAuth();
   const [query, setQuery] = useState('');
   const [messages, setMessages] = useState<{ sender: 'user' | 'bot', text: string }[]>([
     { sender: 'bot', text: 'Hello! I am Absattar, your AI assistant. How can I help you today? You can ask me about attendance policies, university rules, or how to use this app.' }
@@ -14,25 +16,29 @@ const StudentChatbotScreen: React.FC = () => {
   const [messageCount, setMessageCount] = useState(0);
   const DAILY_LIMIT = 5;
 
+  const getStorageKey = () => `chatbot_usage_${user?.id || 'guest'}`;
+
   useEffect(() => {
     const loadUsage = async () => {
+      if (!user) return;
       const today = new Date().toISOString().split('T')[0];
+      const key = getStorageKey();
       try {
-        const stored = await AsyncStorage.getItem('chatbot_usage');
+        const stored = await AsyncStorage.getItem(key);
         if (stored) {
           const { date, count } = JSON.parse(stored);
           if (date === today) {
             setMessageCount(count);
           } else {
-            await AsyncStorage.setItem('chatbot_usage', JSON.stringify({ date: today, count: 0 }));
+            await AsyncStorage.setItem(key, JSON.stringify({ date: today, count: 0 }));
           }
         } else {
-          await AsyncStorage.setItem('chatbot_usage', JSON.stringify({ date: today, count: 0 }));
+          await AsyncStorage.setItem(key, JSON.stringify({ date: today, count: 0 }));
         }
       } catch(e) {}
     };
     loadUsage();
-  }, []);
+  }, [user]);
 
   const handleSend = async () => {
     if (!query.trim() || messageCount >= DAILY_LIMIT) return;
@@ -53,7 +59,8 @@ const StudentChatbotScreen: React.FC = () => {
       setMessageCount(newCount);
       try {
         const today = new Date().toISOString().split('T')[0];
-        await AsyncStorage.setItem('chatbot_usage', JSON.stringify({ date: today, count: newCount }));
+        const key = getStorageKey();
+        await AsyncStorage.setItem(key, JSON.stringify({ date: today, count: newCount }));
       } catch(e) {}
     }
   };

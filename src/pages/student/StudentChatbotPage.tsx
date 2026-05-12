@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { Send, Bot, User } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell.tsx';
 import { chatbotApi } from '../../services/api.ts';
+import { useAuthStore } from '../../stores/authStore.ts';
 
 export function StudentChatbotPage() {
+  const { user } = useAuthStore();
   const [query, setQuery] = useState('');
   const [messages, setMessages] = useState<{ sender: 'user' | 'bot', text: string }[]>([
     { sender: 'bot', text: 'Hello! I am Absattar, your AI assistant. How can I help you today? You can ask me about attendance policies, university rules, or how to use this app.' }
@@ -12,22 +14,26 @@ export function StudentChatbotPage() {
   const [messageCount, setMessageCount] = useState(0);
   const DAILY_LIMIT = 5;
 
+  const getStorageKey = () => `chatbot_usage_${user?.id || 'guest'}`;
+
   useEffect(() => {
+    if (!user) return;
     const today = new Date().toISOString().split('T')[0];
-    const storedData = localStorage.getItem('chatbot_usage');
+    const key = getStorageKey();
+    const storedData = localStorage.getItem(key);
     if (storedData) {
       try {
         const { date, count } = JSON.parse(storedData);
         if (date === today) {
           setMessageCount(count);
         } else {
-          localStorage.setItem('chatbot_usage', JSON.stringify({ date: today, count: 0 }));
+          localStorage.setItem(key, JSON.stringify({ date: today, count: 0 }));
         }
       } catch(e) {}
     } else {
-      localStorage.setItem('chatbot_usage', JSON.stringify({ date: today, count: 0 }));
+      localStorage.setItem(key, JSON.stringify({ date: today, count: 0 }));
     }
-  }, []);
+  }, [user]);
 
   const handleSend = async () => {
     if (!query.trim() || messageCount >= DAILY_LIMIT) return;
@@ -47,7 +53,8 @@ export function StudentChatbotPage() {
       const newCount = messageCount + 1;
       setMessageCount(newCount);
       const today = new Date().toISOString().split('T')[0];
-      localStorage.setItem('chatbot_usage', JSON.stringify({ date: today, count: newCount }));
+      const key = getStorageKey();
+      localStorage.setItem(key, JSON.stringify({ date: today, count: newCount }));
     }
   };
 

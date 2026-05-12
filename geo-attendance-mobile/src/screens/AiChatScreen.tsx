@@ -16,25 +16,29 @@ const AiChatScreen: React.FC = () => {
   const [messageCount, setMessageCount] = useState(0);
   const DAILY_LIMIT = 5;
 
+  const getStorageKey = () => `chatbot_usage_${user?.id || 'guest'}`;
+
   useEffect(() => {
     const loadUsage = async () => {
+      if (!user) return;
       const today = new Date().toISOString().split('T')[0];
+      const key = getStorageKey();
       try {
-        const stored = await AsyncStorage.getItem('chatbot_usage');
+        const stored = await AsyncStorage.getItem(key);
         if (stored) {
           const { date, count } = JSON.parse(stored);
           if (date === today) {
             setMessageCount(count);
           } else {
-            await AsyncStorage.setItem('chatbot_usage', JSON.stringify({ date: today, count: 0 }));
+            await AsyncStorage.setItem(key, JSON.stringify({ date: today, count: 0 }));
           }
         } else {
-          await AsyncStorage.setItem('chatbot_usage', JSON.stringify({ date: today, count: 0 }));
+          await AsyncStorage.setItem(key, JSON.stringify({ date: today, count: 0 }));
         }
       } catch(e) {}
     };
     loadUsage();
-  }, []);
+  }, [user]);
 
   const title = useMemo(() => 'Absattar AI', []);
 
@@ -67,7 +71,8 @@ const AiChatScreen: React.FC = () => {
       setMessageCount(newCount);
       try {
         const today = new Date().toISOString().split('T')[0];
-        await AsyncStorage.setItem('chatbot_usage', JSON.stringify({ date: today, count: newCount }));
+        const key = getStorageKey();
+        await AsyncStorage.setItem(key, JSON.stringify({ date: today, count: newCount }));
       } catch(e) {}
     }
   };

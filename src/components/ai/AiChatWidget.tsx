@@ -1,8 +1,10 @@
 import { Bot, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useAiChatStore } from '../../stores/aiChatStore.ts';
+import { useAuthStore } from '../../stores/authStore.ts';
 
 export function AiChatWidget() {
+  const { user } = useAuthStore();
   const open = useAiChatStore((s) => s.open);
   const messages = useAiChatStore((s) => s.messages);
   const input = useAiChatStore((s) => s.input);
@@ -12,25 +14,29 @@ export function AiChatWidget() {
   const setInput = useAiChatStore((s) => s.setInput);
   const send = useAiChatStore((s) => s.send);
 
+  const getStorageKey = () => `chatbot_usage_${user?.id || 'guest'}`;
+
   const [messageCount, setMessageCount] = useState(0);
   const DAILY_LIMIT = 5;
 
   useEffect(() => {
+    if (!user) return;
     const today = new Date().toISOString().split('T')[0];
-    const storedData = localStorage.getItem('chatbot_usage');
+    const key = getStorageKey();
+    const storedData = localStorage.getItem(key);
     if (storedData) {
       try {
         const { date, count } = JSON.parse(storedData);
         if (date === today) {
           setMessageCount(count);
         } else {
-          localStorage.setItem('chatbot_usage', JSON.stringify({ date: today, count: 0 }));
+          localStorage.setItem(key, JSON.stringify({ date: today, count: 0 }));
         }
       } catch(e) {}
     } else {
-      localStorage.setItem('chatbot_usage', JSON.stringify({ date: today, count: 0 }));
+      localStorage.setItem(key, JSON.stringify({ date: today, count: 0 }));
     }
-  }, [open]);
+  }, [open, user]);
 
   const handleSend = async () => {
     if (messageCount >= DAILY_LIMIT) return;
@@ -38,7 +44,8 @@ export function AiChatWidget() {
     const newCount = messageCount + 1;
     setMessageCount(newCount);
     const today = new Date().toISOString().split('T')[0];
-    localStorage.setItem('chatbot_usage', JSON.stringify({ date: today, count: newCount }));
+    const key = getStorageKey();
+    localStorage.setItem(key, JSON.stringify({ date: today, count: newCount }));
   };
 
   const endRef = useRef<HTMLDivElement | null>(null);
