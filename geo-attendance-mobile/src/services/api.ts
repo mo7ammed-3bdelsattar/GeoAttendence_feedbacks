@@ -445,7 +445,7 @@ export const userApi = {
       uri: fileUri,
       name: `photo.${fileType}`,
       type: `image/${fileType}`,
-    });
+    } as any);
 
     const response = await api.post('/users/upload-avatar', formData, {
       headers: {

@@ -18,6 +18,7 @@ export interface Department {
   id: string;
   name: string;
   code: string;
+  description?: string;
 }
 
 export interface Classroom {
@@ -26,6 +27,7 @@ export interface Classroom {
   capacity?: number;
   latitude?: number;
   longitude?: number;
+  location?: string;
 }
 
 export interface Session {

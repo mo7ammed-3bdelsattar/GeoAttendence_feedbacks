@@ -8,7 +8,8 @@ export function navigate<Name extends keyof RootStackParamList>(
   params?: RootStackParamList[Name]
 ) {
   if (navigationRef.isReady()) {
-    navigationRef.navigate(name, params as any);
+    // @ts-ignore
+    navigationRef.navigate(name, params);
   }
 }
 

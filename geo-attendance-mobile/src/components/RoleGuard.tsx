@@ -43,9 +43,9 @@ const RoleGuard: React.FC<RoleGuardProps> = ({
     return (
       <RoleMismatchModal
         visible={true}
-        currentRole={currentRole}
+        currentRole={currentRole || 'Unknown'}
         requiredRole={requiredRole}
-        onNavigateToLogin={handleNavigateToLogin}
+        onConfirm={handleNavigateToLogin}
       />
     );
   }

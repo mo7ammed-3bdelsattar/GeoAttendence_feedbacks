@@ -512,7 +512,7 @@ const styles = StyleSheet.create({
     padding: 12, 
     marginBottom: 16 
   },
-  selectBtnText: { color: Colors.textPrimary, ...Typography.Typography.body },
+  selectBtnText: { ...Typography.Typography.body, color: Colors.textPrimary },
   selectListItem: { 
     padding: 16, 
     borderBottomWidth: 1, 

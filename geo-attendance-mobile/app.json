@@ -15,16 +15,18 @@
       "bundleIdentifier": "com.geo.attendance.mobile"
     },
     "android": {
-      "package": "com.geo.attendance.mobile",
-      "predictiveBackGestureEnabled": false
+      "package": "com.geo.attendance.mobile"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "extra": {
       "eas": {
-        "projectId": "066edddb-2a94-472e-936c-207bb79547d2"
+        "projectId": "676992db-a589-48b9-91e9-3f0475d9433f"
       }
-    }
+    },
+    "plugins": [
+      "./withCameraMaven.js"
+    ]
   }
 }
