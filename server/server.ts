@@ -5,11 +5,19 @@ import apiRoutes from './routes/apiRoutes';
 import { initNotificationCron } from './utils/notificationCron';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 dotenv.config();
+
+// Ensure upload directories exist
+const uploadDir = path.join(__dirname, 'uploads', 'avatars');
+if (!fs.existsSync(uploadDir)) {
+  console.log(`[SERVER] Creating upload directory: ${uploadDir}`);
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;

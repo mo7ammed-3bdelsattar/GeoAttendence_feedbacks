@@ -21,6 +21,11 @@ import { requireStudentAuth } from '../middleware/authGuard';
 import { requireRole } from '../middleware/requireRole';
 import { db } from '../config/firebase-admin';
 import multer from 'multer';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const router = Router();
 const USE_MOCK_AUTH = process.env.USE_MOCK_AUTH === 'true';
@@ -28,7 +33,9 @@ const USE_MOCK_AUTH = process.env.USE_MOCK_AUTH === 'true';
 // Multer config for local file uploads
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {
-    cb(null, 'server/uploads/avatars');
+    // Use absolute path relative to this file
+    const uploadPath = path.join(__dirname, '..', 'uploads', 'avatars');
+    cb(null, uploadPath);
   },
   filename: (_req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
