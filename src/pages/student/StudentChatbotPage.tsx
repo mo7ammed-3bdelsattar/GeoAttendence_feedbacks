@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Send, Bot, User } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell.tsx';
 import { chatbotApi } from '../../services/api.ts';
@@ -9,9 +9,28 @@ export function StudentChatbotPage() {
     { sender: 'bot', text: 'Hello! I am Absattar, your AI assistant. How can I help you today? You can ask me about attendance policies, university rules, or how to use this app.' }
   ]);
   const [loading, setLoading] = useState(false);
+  const [messageCount, setMessageCount] = useState(0);
+  const DAILY_LIMIT = 5;
+
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const storedData = localStorage.getItem('chatbot_usage');
+    if (storedData) {
+      try {
+        const { date, count } = JSON.parse(storedData);
+        if (date === today) {
+          setMessageCount(count);
+        } else {
+          localStorage.setItem('chatbot_usage', JSON.stringify({ date: today, count: 0 }));
+        }
+      } catch(e) {}
+    } else {
+      localStorage.setItem('chatbot_usage', JSON.stringify({ date: today, count: 0 }));
+    }
+  }, []);
 
   const handleSend = async () => {
-    if (!query.trim()) return;
+    if (!query.trim() || messageCount >= DAILY_LIMIT) return;
     
     const userMsg = query.trim();
     setMessages(prev => [...prev, { sender: 'user', text: userMsg }]);
@@ -25,6 +44,10 @@ export function StudentChatbotPage() {
       setMessages(prev => [...prev, { sender: 'bot', text: 'Sorry, I encountered an error. Please try again later.' }]);
     } finally {
       setLoading(false);
+      const newCount = messageCount + 1;
+      setMessageCount(newCount);
+      const today = new Date().toISOString().split('T')[0];
+      localStorage.setItem('chatbot_usage', JSON.stringify({ date: today, count: newCount }));
     }
   };
 
@@ -54,19 +77,25 @@ export function StudentChatbotPage() {
         </div>
         
         <div className="p-4 bg-white border-x border-b border-gray-200 rounded-b-2xl shadow-sm">
+          {messageCount >= DAILY_LIMIT && (
+            <div className="mb-3 text-center text-sm text-red-500 font-medium">
+              You have reached your daily limit of {DAILY_LIMIT} messages. Please try again tomorrow.
+            </div>
+          )}
           <div className="flex gap-2">
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-              placeholder="Ask about attendance policies, grading, etc..."
-              className="flex-1 p-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder={messageCount >= DAILY_LIMIT ? "Daily limit reached" : "Ask about attendance policies, grading, etc..."}
+              disabled={messageCount >= DAILY_LIMIT}
+              className="flex-1 p-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
             />
             <button
               onClick={handleSend}
-              disabled={loading || !query.trim()}
-              className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              disabled={loading || !query.trim() || messageCount >= DAILY_LIMIT}
+              className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <Send className="h-5 w-5" />
             </button>

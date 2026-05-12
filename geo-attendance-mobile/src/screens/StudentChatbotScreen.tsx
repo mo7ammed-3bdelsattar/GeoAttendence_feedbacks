@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import Colors from '../theme/colors';
 import Typography from '../theme/typography';
 import { chatbotApi } from '../services/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const StudentChatbotScreen: React.FC = () => {
   const [query, setQuery] = useState('');
@@ -10,9 +11,31 @@ const StudentChatbotScreen: React.FC = () => {
     { sender: 'bot', text: 'Hello! I am Absattar, your AI assistant. How can I help you today? You can ask me about attendance policies, university rules, or how to use this app.' }
   ]);
   const [loading, setLoading] = useState(false);
+  const [messageCount, setMessageCount] = useState(0);
+  const DAILY_LIMIT = 5;
+
+  useEffect(() => {
+    const loadUsage = async () => {
+      const today = new Date().toISOString().split('T')[0];
+      try {
+        const stored = await AsyncStorage.getItem('chatbot_usage');
+        if (stored) {
+          const { date, count } = JSON.parse(stored);
+          if (date === today) {
+            setMessageCount(count);
+          } else {
+            await AsyncStorage.setItem('chatbot_usage', JSON.stringify({ date: today, count: 0 }));
+          }
+        } else {
+          await AsyncStorage.setItem('chatbot_usage', JSON.stringify({ date: today, count: 0 }));
+        }
+      } catch(e) {}
+    };
+    loadUsage();
+  }, []);
 
   const handleSend = async () => {
-    if (!query.trim()) return;
+    if (!query.trim() || messageCount >= DAILY_LIMIT) return;
     
     const userMsg = query.trim();
     setMessages(prev => [...prev, { sender: 'user', text: userMsg }]);
@@ -26,6 +49,12 @@ const StudentChatbotScreen: React.FC = () => {
       setMessages(prev => [...prev, { sender: 'bot', text: 'Sorry, I encountered an error. Please try again later.' }]);
     } finally {
       setLoading(false);
+      const newCount = messageCount + 1;
+      setMessageCount(newCount);
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        await AsyncStorage.setItem('chatbot_usage', JSON.stringify({ date: today, count: newCount }));
+      } catch(e) {}
     }
   };
 
@@ -60,20 +89,26 @@ const StudentChatbotScreen: React.FC = () => {
       )}
 
       <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Ask me something..."
-          placeholderTextColor={Colors.textSecondary}
-        />
-        <TouchableOpacity 
-          style={[styles.sendButton, !query.trim() && styles.disabledButton]} 
-          onPress={handleSend}
-          disabled={!query.trim() || loading}
-        >
-          <Text style={styles.sendButtonText}>Send</Text>
-        </TouchableOpacity>
+        {messageCount >= DAILY_LIMIT && (
+          <Text style={styles.limitText}>You have reached your daily limit of {DAILY_LIMIT} messages.</Text>
+        )}
+        <View style={styles.inputRow}>
+          <TextInput
+            style={[styles.input, messageCount >= DAILY_LIMIT && styles.disabledInput]}
+            value={query}
+            onChangeText={setQuery}
+            placeholder={messageCount >= DAILY_LIMIT ? "Daily limit reached" : "Ask me something..."}
+            placeholderTextColor={Colors.textSecondary}
+            editable={messageCount < DAILY_LIMIT}
+          />
+          <TouchableOpacity 
+            style={[styles.sendButton, (!query.trim() || messageCount >= DAILY_LIMIT) && styles.disabledButton]} 
+            onPress={handleSend}
+            disabled={!query.trim() || loading || messageCount >= DAILY_LIMIT}
+          >
+            <Text style={styles.sendButtonText}>Send</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </KeyboardAvoidingView>
   );
@@ -123,11 +158,19 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
   inputContainer: {
-    flexDirection: 'row',
     padding: 16,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
     backgroundColor: Colors.card,
+  },
+  limitText: {
+    color: 'red',
+    fontSize: 12,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  inputRow: {
+    flexDirection: 'row',
   },
   input: {
     flex: 1,
@@ -139,6 +182,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     color: Colors.textPrimary,
     marginRight: 10,
+  },
+  disabledInput: {
+    backgroundColor: Colors.surfaceLight,
+    opacity: 0.7,
   },
   sendButton: {
     backgroundColor: Colors.primary,

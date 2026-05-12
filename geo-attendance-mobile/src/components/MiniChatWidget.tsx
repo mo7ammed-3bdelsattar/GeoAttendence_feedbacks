@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import Colors from '../theme/colors';
 import Typography from '../theme/typography';
 import { chatbotApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type ChatMessage = { id: string; role: 'user' | 'assistant'; content: string };
 
@@ -28,6 +29,28 @@ export function MiniChatWidget() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [messageCount, setMessageCount] = useState(0);
+  const DAILY_LIMIT = 5;
+
+  useEffect(() => {
+    const loadUsage = async () => {
+      const today = new Date().toISOString().split('T')[0];
+      try {
+        const stored = await AsyncStorage.getItem('chatbot_usage');
+        if (stored) {
+          const { date, count } = JSON.parse(stored);
+          if (date === today) {
+            setMessageCount(count);
+          } else {
+            await AsyncStorage.setItem('chatbot_usage', JSON.stringify({ date: today, count: 0 }));
+          }
+        } else {
+          await AsyncStorage.setItem('chatbot_usage', JSON.stringify({ date: today, count: 0 }));
+        }
+      } catch(e) {}
+    };
+    loadUsage();
+  }, []);
   
   const slideAnim = useRef(new Animated.Value(height)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -68,7 +91,7 @@ export function MiniChatWidget() {
 
   const send = async () => {
     const text = input.trim();
-    if (!text || sending) return;
+    if (!text || sending || messageCount >= DAILY_LIMIT) return;
     setInput('');
 
     const userMsg: ChatMessage = { id: `${Date.now()}-u`, role: 'user', content: text };
@@ -88,6 +111,12 @@ export function MiniChatWidget() {
       ]);
     } finally {
       setSending(false);
+      const newCount = messageCount + 1;
+      setMessageCount(newCount);
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        await AsyncStorage.setItem('chatbot_usage', JSON.stringify({ date: today, count: newCount }));
+      } catch(e) {}
     }
   };
 
@@ -145,22 +174,28 @@ export function MiniChatWidget() {
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
           >
-            <View style={styles.composer}>
-              <TextInput
-                value={input}
-                onChangeText={setInput}
-                placeholder="Type..."
-                placeholderTextColor={Colors.textMuted}
-                style={styles.input}
-                multiline
-              />
-              <TouchableOpacity 
-                onPress={send} 
-                disabled={sending || input.trim().length === 0} 
-                style={[styles.sendBtn, (sending || input.trim().length === 0) && styles.sendBtnDisabled]}
-              >
-                <Text style={styles.sendText}>{sending ? '...' : '→'}</Text>
-              </TouchableOpacity>
+            <View style={styles.composerWrapper}>
+              {messageCount >= DAILY_LIMIT && (
+                <Text style={styles.limitText}>Daily limit of {DAILY_LIMIT} messages reached.</Text>
+              )}
+              <View style={styles.composer}>
+                <TextInput
+                  value={input}
+                  onChangeText={setInput}
+                  placeholder={messageCount >= DAILY_LIMIT ? "Limit reached" : "Type..."}
+                  placeholderTextColor={Colors.textMuted}
+                  style={[styles.input, messageCount >= DAILY_LIMIT && styles.disabledInput]}
+                  editable={messageCount < DAILY_LIMIT}
+                  multiline
+                />
+                <TouchableOpacity 
+                  onPress={send} 
+                  disabled={sending || input.trim().length === 0 || messageCount >= DAILY_LIMIT} 
+                  style={[styles.sendBtn, (sending || input.trim().length === 0 || messageCount >= DAILY_LIMIT) && styles.sendBtnDisabled]}
+                >
+                  <Text style={styles.sendText}>{sending ? '...' : '→'}</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </KeyboardAvoidingView>
         </Animated.View>
@@ -281,11 +316,20 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'center',
   },
+  composerWrapper: {
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    backgroundColor: Colors.card,
+  },
+  limitText: {
+    color: 'red',
+    fontSize: 11,
+    textAlign: 'center',
+    paddingTop: 8,
+  },
   composer: {
     flexDirection: 'row',
     padding: 12,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
     alignItems: 'flex-end',
     gap: 8,
   },
@@ -299,6 +343,10 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     borderWidth: 1,
     borderColor: Colors.border,
+  },
+  disabledInput: {
+    backgroundColor: Colors.surfaceLight,
+    opacity: 0.7,
   },
   sendBtn: {
     backgroundColor: Colors.primary,

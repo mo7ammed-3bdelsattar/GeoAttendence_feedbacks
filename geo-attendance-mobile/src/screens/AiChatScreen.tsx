@@ -1,9 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
 import Colors from '../theme/colors';
 import Typography from '../theme/typography';
 import { chatbotApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type ChatMessage = { id: string; role: 'user' | 'assistant'; content: string };
 
@@ -12,12 +13,34 @@ const AiChatScreen: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [messageCount, setMessageCount] = useState(0);
+  const DAILY_LIMIT = 5;
+
+  useEffect(() => {
+    const loadUsage = async () => {
+      const today = new Date().toISOString().split('T')[0];
+      try {
+        const stored = await AsyncStorage.getItem('chatbot_usage');
+        if (stored) {
+          const { date, count } = JSON.parse(stored);
+          if (date === today) {
+            setMessageCount(count);
+          } else {
+            await AsyncStorage.setItem('chatbot_usage', JSON.stringify({ date: today, count: 0 }));
+          }
+        } else {
+          await AsyncStorage.setItem('chatbot_usage', JSON.stringify({ date: today, count: 0 }));
+        }
+      } catch(e) {}
+    };
+    loadUsage();
+  }, []);
 
   const title = useMemo(() => 'Absattar AI', []);
 
   const send = async () => {
     const text = input.trim();
-    if (!text || sending) return;
+    if (!text || sending || messageCount >= DAILY_LIMIT) return;
     setInput('');
 
     const userMsg: ChatMessage = { id: `${Date.now()}-u`, role: 'user', content: text };
@@ -40,6 +63,12 @@ const AiChatScreen: React.FC = () => {
       ]);
     } finally {
       setSending(false);
+      const newCount = messageCount + 1;
+      setMessageCount(newCount);
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        await AsyncStorage.setItem('chatbot_usage', JSON.stringify({ date: today, count: newCount }));
+      } catch(e) {}
     }
   };
 
@@ -68,18 +97,24 @@ const AiChatScreen: React.FC = () => {
         )}
       />
 
-      <View style={styles.composer}>
-        <TextInput
-          value={input}
-          onChangeText={setInput}
-          placeholder="Type your message…"
-          placeholderTextColor={Colors.textMuted}
-          style={styles.input}
-          multiline
-        />
-        <TouchableOpacity onPress={send} disabled={sending || input.trim().length === 0} style={[styles.sendBtn, (sending || input.trim().length === 0) && styles.sendBtnDisabled]}>
-          <Text style={styles.sendText}>{sending ? '...' : 'Send'}</Text>
-        </TouchableOpacity>
+      <View style={styles.composerWrapper}>
+        {messageCount >= DAILY_LIMIT && (
+          <Text style={styles.limitText}>You have reached your daily limit of {DAILY_LIMIT} messages.</Text>
+        )}
+        <View style={styles.composer}>
+          <TextInput
+            value={input}
+            onChangeText={setInput}
+            placeholder={messageCount >= DAILY_LIMIT ? "Daily limit reached" : "Type your message…"}
+            placeholderTextColor={Colors.textMuted}
+            style={[styles.input, messageCount >= DAILY_LIMIT && styles.disabledInput]}
+            editable={messageCount < DAILY_LIMIT}
+            multiline
+          />
+          <TouchableOpacity onPress={send} disabled={sending || input.trim().length === 0 || messageCount >= DAILY_LIMIT} style={[styles.sendBtn, (sending || input.trim().length === 0 || messageCount >= DAILY_LIMIT) && styles.sendBtnDisabled]}>
+            <Text style={styles.sendText}>{sending ? '...' : 'Send'}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </KeyboardAvoidingView>
   );
@@ -154,9 +189,18 @@ const styles = StyleSheet.create({
     ...Typography.Typography.body,
     color: '#fff',
   },
-  composer: {
+  composerWrapper: {
+    backgroundColor: Colors.card,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
+  },
+  limitText: {
+    color: 'red',
+    fontSize: 12,
+    textAlign: 'center',
+    paddingTop: 8,
+  },
+  composer: {
     padding: 12,
     flexDirection: 'row',
     gap: 10,
@@ -174,6 +218,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     color: Colors.textPrimary,
     backgroundColor: Colors.background,
+  },
+  disabledInput: {
+    backgroundColor: Colors.surfaceLight,
+    opacity: 0.7,
   },
   sendBtn: {
     backgroundColor: Colors.primary,
