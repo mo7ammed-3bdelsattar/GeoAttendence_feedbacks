@@ -7,7 +7,7 @@ import { getAccessToken, setAccessToken } from '../utils/storage.ts';
 import type { Attendance, Classroom, Course, Department, Enrollment, Session, User, UserRole } from '../types/index.ts';
 import type { Feedback } from '../types/feedback.ts';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://geoattendencefeedbacks-production.up.railway.app/api';
 
 const api: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,

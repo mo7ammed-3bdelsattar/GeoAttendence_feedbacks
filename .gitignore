@@ -32,7 +32,7 @@ src/.env
 # Local node distributions and secrets
 .localnode/
 .localnode-20.19.4/
-service-account.json
+*service-account*.json
 tmp-node-tar/
 .vercel
 

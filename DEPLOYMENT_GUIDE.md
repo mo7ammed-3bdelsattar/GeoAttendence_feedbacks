@@ -120,7 +120,7 @@ eas build -p ios --profile production
 
 ### `.env.local` (Development)
 ```env
-VITE_API_URL=http://localhost:5000/api
+VITE_API_URL=https://geoattendencefeedbacks-production.up.railway.app/api
 FIREBASE_PROJECT_ID=geo-attendance-6e1a4
 ```
 
