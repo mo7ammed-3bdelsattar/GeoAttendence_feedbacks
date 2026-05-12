@@ -1,0 +1,37 @@
+# EAS Ignore
+# This file tells EAS CLI which files to ignore when uploading the project to EAS Build.
+# It should include everything in .gitignore plus any other large files not needed for the build.
+
+node_modules/
+.git/
+.expo/
+dist/
+web-build/
+
+# Root level directories not needed for mobile build - use / to anchor to root
+/server/
+/functions/
+/src/
+/public/
+/scratch/
+/scripts/
+/tmp-node-tar/
+/.vercel/
+/.firebase/
+/.agents/
+
+# Logs and temporary files
+*.log
+server_log.txt
+server_direct_log.txt
+server_crash.txt
+server_dev_crash.txt
+
+# Secrets and environment files
+.env
+.env.*
+*.json
+!app.json
+!package.json
+!package-lock.json
+!eas.json

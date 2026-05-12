@@ -11,6 +11,7 @@ import type { Course, Feedback, Session } from '../types';
 const StudentDashboardScreen: React.FC = () => {
   const { user, logout } = useAuth();
   const { width } = useWindowDimensions();
+  const navigation = useNavigation<any>();
   const isWideScreen = width >= 1024;
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

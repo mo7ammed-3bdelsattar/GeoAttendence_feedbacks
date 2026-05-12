@@ -37,6 +37,7 @@ export interface Session {
   classroomId?: string;
   classroom?: Partial<Classroom>;
   facultyId: string;
+  faculty?: Partial<User>;
   date?: string;
   startTime?: string;
   endTime?: string;
@@ -51,6 +52,9 @@ export interface Enrollment {
   courseId: string;
   courseName?: string;
   status?: string;
+  enrolledAt?: string;
+  student?: Partial<User>;
+  course?: Partial<Course>;
 }
 
 export interface Feedback {

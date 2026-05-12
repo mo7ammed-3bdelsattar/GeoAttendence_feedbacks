@@ -1,4 +1,4 @@
-const { withProjectBuildGradle } = require('@expo/config-plugins');
+const { withProjectBuildGradle } = require('expo/config-plugins');
 
 module.exports = function withCameraMaven(config) {
   return withProjectBuildGradle(config, (config) => {

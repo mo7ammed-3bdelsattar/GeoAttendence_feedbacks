@@ -15,7 +15,16 @@
       "bundleIdentifier": "com.geo.attendance.mobile"
     },
     "android": {
-      "package": "com.geo.attendance.mobile"
+      "package": "com.geo.attendance.mobile",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "RECORD_AUDIO",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "FOREGROUND_SERVICE"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"

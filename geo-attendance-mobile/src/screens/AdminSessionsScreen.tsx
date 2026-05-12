@@ -71,7 +71,7 @@ const AdminSessionsScreen: React.FC = () => {
     setFacultyId(session.facultyId);
     setClassroomId(session.classroomId || '');
     setDate(session.date ? session.date.split('T')[0] : '');
-    setIsActive(session.isActive);
+    setIsActive(session.isActive ?? true);
     setModalVisible(true);
   };
 

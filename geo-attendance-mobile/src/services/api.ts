@@ -438,14 +438,16 @@ export const userApi = {
 
   uploadAvatar: async (fileUri: string) => {
     const formData = new FormData();
-    const uriParts = fileUri.split('.');
-    const fileType = uriParts[uriParts.length - 1];
+    const filename = fileUri.split('/').pop() || 'photo.jpg';
+    const match = /\.(\w+)$/.exec(filename);
+    const type = match ? `image/${match[1]}` : `image/jpeg`;
 
+    // @ts-ignore
     formData.append('avatar', {
-      uri: fileUri,
-      name: `photo.${fileType}`,
-      type: `image/${fileType}`,
-    } as any);
+      uri: Platform.OS === 'android' ? fileUri : fileUri.replace('file://', ''),
+      name: filename,
+      type,
+    });
 
     const response = await api.post('/users/upload-avatar', formData, {
       headers: {

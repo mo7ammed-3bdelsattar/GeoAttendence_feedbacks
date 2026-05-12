@@ -18,12 +18,16 @@ export const uploadImage = async (req: Request, res: Response) => {
   try {
     const authUser = await getAuthenticatedUser(req);
     if (!authUser?.uid) {
+      console.warn('[UPLOAD] Unauthorized attempt');
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
     if (!req.file) {
+      console.warn('[UPLOAD] No file in request');
       return res.status(400).json({ error: 'No file uploaded' });
     }
+
+    console.log(`[UPLOAD] Processing file for user ${authUser.uid}:`, req.file.originalname);
 
     const PORT = process.env.PORT || 5000;
     const localIP = getLocalIP();
@@ -32,12 +36,14 @@ export const uploadImage = async (req: Request, res: Response) => {
     // We serve the 'server/uploads' folder as '/uploads' static route
     const imageUrl = `http://${localIP}:${PORT}/uploads/avatars/${req.file.filename}`;
 
-    console.log(`[UPLOAD] File saved locally: ${req.file.filename}`);
-    console.log(`[UPLOAD] Accessible at: ${imageUrl}`);
-
+    console.log(`[UPLOAD] File saved: ${req.file.filename}`);
+    
     res.json({ url: imageUrl });
   } catch (error: any) {
-    console.error('[UPLOAD] Error:', error);
-    res.status(500).json({ error: error.message });
+    console.error('[UPLOAD] Server Error:', error);
+    res.status(500).json({ 
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 };

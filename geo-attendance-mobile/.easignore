@@ -1,0 +1,10 @@
+# EAS Ignore for mobile app
+node_modules/
+.expo/
+dist/
+web-build/
+ios/
+android/
+*.log
+.env.local
+.env.*.local
