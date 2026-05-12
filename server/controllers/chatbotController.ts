@@ -2,8 +2,6 @@ import { Request, Response } from 'express';
 import { db } from '../config/firebase-admin';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || '');
-
 // In-memory rate limiter map: IP -> { count, resetTime }
 const rateLimitMap = new Map<string, { count: number, resetTime: number }>();
 const DAILY_LIMIT = 5;
@@ -40,29 +38,40 @@ export const askChatbot = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: 'Query is required.' });
     }
 
+    const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
+
     const snapshot = await db.collection('policies').get();
     const policies = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
     const context = policies.map(p => `Policy: ${p.title}\nContent: ${p.content}`).join('\n\n');
 
-    if (process.env.GOOGLE_GEMINI_API_KEY) {
+    if (apiKey) {
       try {
-        const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
 
         const prompt = `
-          You are "Absattar" (عبستار), a friendly and helpful AI assistant for the GeoAttendance system.
+          You are "Absattar" (عبستار), a highly intelligent and friendly AI assistant for the GeoAttendance system.
 
-          RULES:
-          1. GREETINGS: If the user greets you (e.g., "hi", "سلام", "صباح الخير"), respond warmly as Absattar FIRST, then proceed to answer their question if they asked one.
-          2. SCOPE: You answer questions about university policies, attendance rules, grading, or the GeoAttendance system.
-          3. MATCHING: If the question is related to the provided policies or university life in general, answer it using the context provided.
-          4. FALLBACK: If the user asks something outside of your scope, or if you don't have enough information in the policies to answer, you MUST say:
-             - Arabic: "عذراً، أنا معنديش معلومات كافية عن سؤالك ده حالياً. يفضل ترجع لإدارة الكلية أو الدكتور بتاعك عشان يفيدك أكتر."
-             - English: "I'm sorry, I don't have enough information about your question right now. It's best to check with the college administration or your professor for more details."
-          5. TONE: Be natural and student-friendly.
+          MISSION:
+          Your goal is to help students, faculty, and admins with university policies, attendance rules, and system usage.
           
-          LANGUAGE RULES:
-          6. Respond in the SAME language as the user.
-          7. If Arabic, use friendly Egyptian Arabic (عامية مصرية بيضاء).
+          GREETING RULES (VERY IMPORTANT):
+          - Respond to greetings (e.g., "سلام", "هاي", "صباح الخير", "يا عبستار") in a warm, varied, and natural way. 
+          - DO NOT use the same fixed greeting every time. Use Egyptian Arabic slang naturally (e.g., "أهلاً بيك يسطا، نورتني!", "يا هلا بيك، معاك عبستار، أؤمرني؟").
+          - If they greet you AND ask a question, greet them first then answer the question.
+
+          REASONING & POLICIES:
+          - Use the "POLICIES CONTEXT" below to answer questions.
+          - Be smart: If the question is slightly different but clearly related to a policy (like "حضور" relating to "Attendance Policy"), connect the dots and explain it clearly.
+          - If the user asks something covered in the policies, provide a detailed and helpful summary of that policy.
+          
+          FALLBACK RULES:
+          - If the user asks something completely unrelated to the university or attendance (e.g., "how to cook", "tell me a story"), or if the policies absolutely do not cover the topic, use this specific fallback:
+            "عذراً، أنا معنديش معلومات كافية عن سؤالك ده حالياً. يفضل ترجع لإدارة الكلية أو الدكتور بتاعك عشان يفيدك أكتر."
+
+          LANGUAGE:
+          - Always respond in the language the user used.
+          - If Arabic, use friendly, intelligent Egyptian Arabic (عامية مصرية بيضاء).
 
           POLICIES CONTEXT:
           ${context}
@@ -85,10 +94,8 @@ export const askChatbot = async (req: Request, res: Response) => {
           message: "Gemini response generated"
         });
       } catch (geminiError: any) {
-        console.error('[Gemini API Error]', geminiError.message);
-        if (geminiError.status !== 404) {
-           return res.status(500).json({ success: false, error: geminiError.message });
-        }
+        console.error('[Gemini API Error]', geminiError.message || geminiError);
+        // If Gemini fails, we will proceed to the manual fallback below
       }
     }
 
@@ -107,15 +114,31 @@ export const askChatbot = async (req: Request, res: Response) => {
 
     let bestMatch = null;
     let maxMatches = 0;
+    const queryWords = lowerQuery.split(/\s+/);
 
     for (const policy of policies) {
-      const keywords = policy.keywords || [];
-      const title = policy.title || "";
-      let matchCount = 0;
-      if (lowerQuery.includes(title.toLowerCase())) matchCount += 5;
-      keywords.forEach((k: string) => { if (lowerQuery.includes(k.toLowerCase())) matchCount += 2; });
-      if (matchCount > maxMatches) { 
-        maxMatches = matchCount; 
+      const keywords = (Array.isArray(policy.keywords) ? policy.keywords : []).map((k: any) => String(k).toLowerCase());
+      const title = String(policy.title || "").toLowerCase();
+      let matchScore = 0;
+
+      // 1. Title match (High priority)
+      if (lowerQuery.includes(title) || title.includes(lowerQuery)) matchScore += 10;
+      
+      // 2. Word matches in title
+      queryWords.forEach(word => {
+        if (word.length > 2 && title.includes(word)) matchScore += 5;
+      });
+
+      // 3. Keyword matches
+      keywords.forEach((k: string) => { 
+        if (lowerQuery.includes(k)) matchScore += 3;
+        queryWords.forEach(word => {
+          if (word.length > 2 && k.includes(word)) matchScore += 2;
+        });
+      });
+
+      if (matchScore > maxMatches) { 
+        maxMatches = matchScore; 
         bestMatch = policy; 
       }
     }
@@ -123,7 +146,7 @@ export const askChatbot = async (req: Request, res: Response) => {
     return res.json({
       success: true,
       data: {
-        response: bestMatch ? bestMatch.content : "عذراً، أنا معنديش معلومات كافية عن سؤالك ده حالياً. يفضل ترجع لإدارة الكلية أو الدكتور بتاعك عشان يفيدك أكتر."
+        response: (bestMatch && maxMatches >= 2) ? bestMatch.content : "عذراً، أنا معنديش معلومات كافية عن سؤالك ده حالياً. يفضل ترجع لإدارة الكلية أو الدكتور بتاعك عشان يفيدك أكتر."
       },
       message: "Fallback response"
     });

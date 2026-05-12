@@ -15,7 +15,7 @@ const getBaseUrl = () => {
   console.log(`[API] Platform detected: ${platform}`);
   
   if (platform === 'web') {
-    return 'https://geoattendencefeedbacks-production.up.railway.app/api';
+    return process.env.VITE_API_URL;
   }
   
   const isEmulator = !Platform.isTesting && (platform === 'android' && !process.env.JEST_WORKER_ID);
@@ -23,7 +23,7 @@ const getBaseUrl = () => {
   if (envUrl && !envUrl.includes('localhost')) return envUrl;
   
   // Fallback to your machine's network IP
-  return 'https://geoattendencefeedbacks-production.up.railway.app/api';
+  return process.env.VITE_API_URL;
 };
 
 const API_URL = getBaseUrl();

@@ -1,6 +1,8 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import apiRoutes from './routes/apiRoutes';
 import { initNotificationCron } from './utils/notificationCron';
 import path from 'path';
@@ -9,8 +11,6 @@ import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-dotenv.config();
 
 // Ensure upload directories exist
 const uploadDir = path.join(__dirname, 'uploads', 'avatars');
